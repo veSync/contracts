@@ -9,7 +9,7 @@ import 'contracts/interfaces/IPair.sol';
 import 'contracts/interfaces/IVoter.sol';
 import 'contracts/interfaces/IVotingEscrow.sol';
 
-// Gauges are used to incentivize pools, they emit reward tokens over 7 days for staked LP tokens
+// Gauges are used to incentivize pools, they emit reward tokens over 600 for staked LP tokens
 contract Gauge is IGauge {
 
     address public immutable stake; // the LP token that needs to be staked for rewards
@@ -23,7 +23,7 @@ contract Gauge is IGauge {
 
     bool public isForPair;
 
-    uint internal constant DURATION = 7 days; // rewards are released over 7 days
+    uint internal constant DURATION = 600; // rewards are released over 600
     uint internal constant PRECISION = 10 ** 18;
     uint internal constant MAX_REWARD_TOKENS = 16;
 

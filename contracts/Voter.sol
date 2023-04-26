@@ -15,7 +15,7 @@ import 'contracts/interfaces/IVotingEscrow.sol';
 
 contract Voter is IVoter {
     
-    uint internal constant DURATION = 7 days; // rewards are released over 7 days
+    uint internal constant DURATION = 600; // rewards are released over 600
 
     address public immutable _ve; // the ve token that governs these contracts
     address public immutable factory; // the PairFactory

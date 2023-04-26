@@ -11,7 +11,7 @@ contract TestStakingRewards {
     uint public lastUpdateTime;
     uint public rewardPerTokenStored;
     uint256 public periodFinish = 0;
-    uint256 public rewardsDuration = 7 days;
+    uint256 public rewardsDuration = 600;
 
     mapping(address => uint) public userRewardPerTokenPaid;
     mapping(address => uint) public rewards;

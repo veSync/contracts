@@ -13,7 +13,7 @@ contract ExternalBribe is IBribe {
     address public immutable voter; // only voter can modify balances (since it only happens on vote())
     address public immutable _ve; // 天使のたまご
 
-    uint internal constant DURATION = 7 days; // rewards are released over the voting period
+    uint internal constant DURATION = 600; // rewards are released over the voting period
     uint internal constant MAX_REWARD_TOKENS = 16;
 
     uint internal constant PRECISION = 10 ** 18;
@@ -75,13 +75,13 @@ contract ExternalBribe is IBribe {
     }
 
     function _bribeStart(uint timestamp) internal pure returns (uint) {
-        return timestamp - (timestamp % (7 days));
+        return timestamp - (timestamp % (600));
     }
 
     function getEpochStart(uint timestamp) public pure returns (uint) {
         uint bribeStart = _bribeStart(timestamp);
         uint bribeEnd = bribeStart + DURATION;
-        return timestamp < bribeEnd ? bribeStart : bribeStart + 7 days;
+        return timestamp < bribeEnd ? bribeStart : bribeStart + 600;
     }
 
     /**

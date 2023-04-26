@@ -20,7 +20,7 @@ contract VotingEscrowTest is BaseTest {
 
     function testFreeze() public {
         VELO.approve(address(escrow), 1e22);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
         escrow.create_lock_and_freeze_for(1e20, lockDuration, address(this));
         assertTrue(escrow.isFrozen(1));
 
@@ -43,7 +43,7 @@ contract VotingEscrowTest is BaseTest {
 
     function testWithdrawFrozenAfterUnlock() public {
         VELO.approve(address(escrow), 1e22);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
         escrow.create_lock_and_freeze_for(1e20, lockDuration, address(this));
         
         // After unlock time, token should be withdrawable
@@ -55,7 +55,7 @@ contract VotingEscrowTest is BaseTest {
     
     function testTransferAfterUnfreeze() public {
         VELO.approve(address(escrow), 1e22);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
         escrow.create_lock_and_freeze_for(1e20, lockDuration, address(this));
 
         assertTrue(escrow.isFrozen(1));
@@ -68,7 +68,7 @@ contract VotingEscrowTest is BaseTest {
 
     function testCreateLock() public {
         VELO.approve(address(escrow), 1e21);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
 
         // Balance should be zero before and 1 after creating the lock
         assertEq(escrow.balanceOf(address(owner)), 0);
@@ -79,7 +79,7 @@ contract VotingEscrowTest is BaseTest {
 
     function testCreateLockOutsideAllowedZones() public {
         VELO.approve(address(escrow), 1e21);
-        uint256 oneWeek = 7 * 24 * 3600;
+        uint256 oneWeek = 600;
         uint256 oneYear = 365 * 24 * 3600;
         vm.expectRevert(abi.encodePacked('Voting lock can be 1 year max'));
         escrow.create_lock(1e21, oneYear + oneWeek);
@@ -87,7 +87,7 @@ contract VotingEscrowTest is BaseTest {
 
     function testWithdraw() public {
         VELO.approve(address(escrow), 1e21);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
         escrow.create_lock(1e21, lockDuration);
 
         // Try withdraw early
@@ -107,7 +107,7 @@ contract VotingEscrowTest is BaseTest {
 
     function testSplit() public {
         VELO.approve(address(escrow), 1e21);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
         escrow.create_lock(1e21, lockDuration);
 
         // due to rounding errors, we verify the voting power / scale is consistent
@@ -141,7 +141,7 @@ contract VotingEscrowTest is BaseTest {
         vm.expectRevert(abi.encodePacked("Query for nonexistent token"));
         escrow.tokenURI(999);
         VELO.approve(address(escrow), 1e21);
-        uint256 lockDuration = 7 * 24 * 3600; // 1 week
+        uint256 lockDuration = 600; // 1 week
         escrow.create_lock(1e21, lockDuration);
 
         uint256 tokenId = 1;
