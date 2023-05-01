@@ -25,7 +25,7 @@ contract TokenSaleTest is BaseTest {
         // public rate 1E = 10000 Token
         // cap 15000 Token
         // max 30% bonus
-        sale = new TokenSale(IERC20(address(VELO)), IVotingEscrow(address(ve)), 20000, 10000, 15000e18, 30);
+        sale = new TokenSale(IERC20(address(VELO)), IVotingEscrow(address(ve)), 20000, 10000, 15000e18);
 
         // merkle root is generated in example_proof.json
         sale.setMerkleRoot(0x8d8edd611c4eda08c1a22a6a9b6c3eadc6e4d2e5c7a475268b5be06aaa269de1);
@@ -38,7 +38,14 @@ contract TokenSaleTest is BaseTest {
 
     function testNoBonus() public {
         VELO.approve(address(sale), 19500e18); // approve extra 30% bonus
+
+        // test: status is correct
+        assertEq(sale.getStatus(), 0);
+
         sale.start();
+
+        // test: status is correct
+        assertEq(sale.getStatus(), 1);
 
         // user 1 WL amount = 0.25E
         vm.startPrank(user1);
@@ -82,9 +89,12 @@ contract TokenSaleTest is BaseTest {
 
         sale.startPublicRound();
 
+        // test: status is correct
+        assertEq(sale.getStatus(), 2);
+
         vm.startPrank(user3);
         // test: commitWhitelist should revert
-        vm.expectRevert("Public round already started");
+        vm.expectRevert("Not whitelist round");
         sale.commitWhitelist{value: 0.25 ether}(0.25e18, proof2);
 
         // test: user 3 commits public round
@@ -96,7 +106,7 @@ contract TokenSaleTest is BaseTest {
         sale.commitPublic{value: 0.1 ether}();
 
         // test: cannot claim before end
-        vm.expectRevert("Not finished yet");
+        vm.expectRevert("Cannot claim yet");
         sale.claim();
         vm.stopPrank();
 
@@ -107,6 +117,19 @@ contract TokenSaleTest is BaseTest {
 
         // test: ETH is transferred to owner
         assertEq(balanceAfter - balanceBefore, 1.15 ether);
+        
+        // test: status is correct
+        assertEq(sale.getStatus(), 3);
+
+        // test: still cannot claim before "enableClaim"
+        vm.expectRevert("Cannot claim yet");
+        sale.claim();
+        vm.stopPrank();
+
+        sale.enableClaim();
+        
+        // test: status is correct
+        assertEq(sale.getStatus(), 4);
 
         // test: user1 claims
         vm.prank(user1);
@@ -129,11 +152,14 @@ contract TokenSaleTest is BaseTest {
         vm.stopPrank();
 
         balanceBefore = VELO.balanceOf(address(this));
-        sale.withdrawUnsoldTokens();
+        sale.withdrawRemainingTokens();
         balanceAfter = VELO.balanceOf(address(this));
 
         // test: 30% bonus tokens are returned because no one got bonus 
         assertEq(balanceAfter - balanceBefore, 15000e18 * 30 / 100);
+
+        // test: totalTokensSold is correct
+        assertEq(sale.totalTokensSold(), 15000e18);
     }
 
     function testBonus() public {
@@ -157,17 +183,19 @@ contract TokenSaleTest is BaseTest {
         sale.commitPublic{value: 1 ether}();
         assertEq(sale.getClaimableAmount(user2), 10000e18);
 
-        // owner calls finish
+        // owner calls finish and enable claim
         uint256 balanceBefore = address(this).balance;
         sale.finish();
         uint256 balanceAfter = address(this).balance;
 
+        sale.enableClaim();
+
         // test: ETH is transferred to owner
         assertEq(balanceAfter - balanceBefore, 1.25 ether);
 
-        // user1 claims and locks 1 year
+        // user1 claims and locks 1 year (12 months)
         vm.prank(user1);
-        sale.claimAndLock(365 days);
+        sale.claimAndLock(12);
 
         // test: 30% liquid token bonus, and 1 veNFT
         assertEq(VELO.balanceOf(user1), 5000e18 * 30 / 100);
@@ -176,32 +204,44 @@ contract TokenSaleTest is BaseTest {
 
         // test: owner can claim remaining
         balanceBefore = VELO.balanceOf(address(this));
-        sale.withdrawUnsoldTokens();
+        sale.withdrawRemainingTokens();
         balanceAfter = VELO.balanceOf(address(this));
         uint expectedReturned = 19500e18 - 5000e18 * 130 / 100 - 10000e18 * 130 / 100;
         assertEq(balanceAfter - balanceBefore, expectedReturned);
 
-        // test: user2 claims and locks half a year (will be rounded to 26 weeks)
-        vm.prank(user2);
-        sale.claimAndLock(365 days / 2);
+        // user2 claims and locks 4 months
+        vm.startPrank(user2);
 
-        // test: 15% liquid token bonus, and 1 veNFT
-        assertEq(VELO.balanceOf(user2), 10000e18 * 15 / 100);
+        // test: cannot lock anything other than 1/2/4/8/12 months
+        vm.expectRevert("Must lock 1/2/4/8/12 months");
+        sale.claimAndLock(13);
+        vm.expectRevert("Must lock 1/2/4/8/12 months");
+        sale.claimAndLock(9);
+        vm.expectRevert("Must lock 1/2/4/8/12 months");
+        sale.claimAndLock(0);
+
+        // lock 4 months
+        sale.claimAndLock(4);
+
+        // test: 18% liquid token bonus, and 1 veNFT
+        assertEq(VELO.balanceOf(user2), 10000e18 * 18 / 100);
         assertEq(ve.ownerOf(2), address(user2));
         assertEq(ve.balanceOf(address(user2)), 1);
 
         // test: cannot claim and lock twice
-        vm.startPrank(user2);
         vm.expectRevert("Nothing to claim");
-        sale.claimAndLock(365 days / 2);
+        sale.claimAndLock(4);
         vm.stopPrank();
 
         balanceBefore = VELO.balanceOf(address(this));
-        sale.withdrawUnsoldTokens();
+        sale.withdrawRemainingTokens();
         balanceAfter = VELO.balanceOf(address(this));
 
         // test: owner can claim remaining
-        expectedReturned = 19500e18 - 5000e18 - 10000e18 - 5000e18 * 30 / 100 - 10000e18 * 15 / 100;
+        expectedReturned = 19500e18 - 5000e18 - 10000e18 - 5000e18 * 30 / 100 - 10000e18 * 18 / 100;
         assertEq(balanceAfter - balanceBefore, expectedReturned);
+
+        // test: totalTokensSold is correct
+        assertEq(sale.totalTokensSold(), 15000e18);
     }
 }
