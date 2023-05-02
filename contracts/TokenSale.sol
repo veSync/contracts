@@ -7,9 +7,6 @@ import "contracts/interfaces/IVotingEscrow.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
-// import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract TokenSale is Ownable, ReentrancyGuard {
     // Status of the sale
