@@ -130,7 +130,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
         require(MerkleProof.verify(merkleProof, merkleRoot, node), "Invalid proof");
         require(wlCommitments[msg.sender] + msg.value <= capAmount, "Individual cap reached");
 
-        uint256 tokenAmount = msg.value * wlRate/ 10**6;
+        uint256 tokenAmount = msg.value * wlRate / 10**6;
 
         require(totalTokensSold + tokenAmount <= tokensToSell, "Global cap reached");
 
