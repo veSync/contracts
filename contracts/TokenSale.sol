@@ -8,6 +8,7 @@ import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
+
 contract TokenSale is Ownable, ReentrancyGuard {
     // Status of the sale
     // NOT_STARTED: initial stage, WL sale not started yet
@@ -17,8 +18,8 @@ contract TokenSale is Ownable, ReentrancyGuard {
     // FINISHED_CLAIMABLE: sale finished, tokens can be claimed
     enum Status { NOT_STARTED, WHITELIST_ROUND, PUBLIC_ROUND, FINISHED_UNCLAIMABLE, FINISHED_CLAIMABLE }
 
-    IERC20 public immutable salesToken;
-    IVotingEscrow public immutable ve;
+    IERC20 public salesToken;
+    IVotingEscrow public ve;
     uint public immutable tokensToSell;
     uint public immutable conversionRate; // 1 ETH = `conversionRate` * 1,000,000 tokens
     uint public immutable maxBonusPercentage;
@@ -45,34 +46,41 @@ contract TokenSale is Ownable, ReentrancyGuard {
     // we treat 1 month = 4 weeks for simplicity
     mapping(uint => uint) internal bonusPercentages; 
 
-    constructor(
-        IERC20 _salesToken,
-        IVotingEscrow _ve,
+        constructor(
         uint _conversionRate,
         uint _tokensToSell
     ) {
-        // token must be 18 decimals, otherwise we'll have problems with ETH conversion rate
-        require(_salesToken.decimals() == 18, "Token must be 18 decimals");
-
-        require(_ve.token() == address(_salesToken), "ve token address mismatch");
-
-        salesToken = _salesToken;
-        ve = _ve;
         tokensToSell = _tokensToSell;
         conversionRate = _conversionRate;
+
         status = Status.NOT_STARTED;
+
         bonusPercentages[1] = 6; // 1 mo lock = 6% bonus in veVS
         bonusPercentages[2] = 12; // 2 mo lock = 12% bonus
         bonusPercentages[4] = 18; // 4 mo lock = 18% bonus
         bonusPercentages[8] = 24; // 8 mo lock = 24% bonus
         bonusPercentages[12] = 30; // 12 mo lock = 30% bonus
         maxBonusPercentage = 30; // 30% max bonus
-        _salesToken.approve(address(_ve), type(uint).max);
+        
     }
 
     // owner can set merkle root for WL sale
     function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
         merkleRoot = _merkleRoot;
+    }
+
+    // owner need to set sales token and ve token before enabling claiming
+    function setSaleTokenAndVe(IERC20 _salesToken, IVotingEscrow _ve) external onlyOwner {
+        require(address(salesToken) == address(0), "Token already set");
+        require(address(ve) == address(0), "ve already set");
+
+        // token must be 18 decimals, otherwise we'll have problems with ETH conversion rate
+        require(_salesToken.decimals() == 18, "Token must be 18 decimals");
+        require(_ve.token() == address(_salesToken), "ve token address mismatch");
+
+        salesToken = _salesToken;
+        ve = _ve;
+        _salesToken.approve(address(_ve), type(uint).max);
     }
 
     // ------- Sales Status Management -------
@@ -81,7 +89,6 @@ contract TokenSale is Ownable, ReentrancyGuard {
     function start() external onlyOwner {
         require(status == Status.NOT_STARTED, "Invalid status");
         status = Status.WHITELIST_ROUND;
-        _safeTransferFrom(address(salesToken), msg.sender, address(this), tokensToSell * (100 + maxBonusPercentage) / 100);
     }
 
     // start public sale, can only be called after WL sale is started
@@ -102,10 +109,15 @@ contract TokenSale is Ownable, ReentrancyGuard {
         require(success, "Failed to transfer ether");
     }
 
-    // enable claiming, can only be called after sale is finished
+    // enable claiming and transfer tokens to the contract, can only be called after sale is finished
     function enableClaim() external onlyOwner {
         require(status == Status.FINISHED_UNCLAIMABLE, "Invalid status");
+        require(address(salesToken) != address(0), "Token not set");
+        require(address(ve) != address(0), "ve not set");
+        
         status = Status.FINISHED_CLAIMABLE;
+
+        _safeTransferFrom(address(salesToken), msg.sender, address(this), tokensToSell * (100 + maxBonusPercentage) / 100);
     }
     
     // ------- user interaction -------
