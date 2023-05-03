@@ -19,10 +19,9 @@ contract TokenSale is Ownable, ReentrancyGuard {
 
     IERC20 public immutable salesToken;
     IVotingEscrow public immutable ve;
-    uint256 public immutable tokensToSell;
-    uint256 public immutable wlRate;
-    uint256 public immutable publicRate;
-    uint256 public immutable maxBonusPercentage;
+    uint public immutable tokensToSell;
+    uint public immutable conversionRate; // 1 ETH = `conversionRate` * 1,000,000 tokens
+    uint public immutable maxBonusPercentage;
 
     Status public status;
     
@@ -30,17 +29,17 @@ contract TokenSale is Ownable, ReentrancyGuard {
 
     // Total tokens sold, not including bonus
     // After the sale concludes, `tokensToSell - totalTokensSold` amount of tokens will be burned if there are any left
-    uint256 public totalTokensSold;
+    uint public totalTokensSold;
 
     // Tokens reserved in the contract for sales + max bonus
     // Only unreserved tokens can be withdrawn by team after sale ends
-    uint256 public reservedTokens;
+    uint public reservedTokens;
 
-    mapping(address => uint256) public claimableAmounts; // amount of tokens claimable by user
-    mapping(address => uint256) public wlCommitments; // amount of ETH committed in WL sale
+    mapping(address => uint) public claimableAmounts; // amount of tokens claimable by user
+    mapping(address => uint) public wlEthCommitments; // amount of ETH committed in WL sale by user
+    mapping(address => uint) public totalEthCommitments; // amount of ETH committed in WL + public sale by user
 
-    uint internal constant MAX_LOCK_WEEKS = 52; // max lock is 1 year
-    uint internal constant MIN_LOCK_WEEKS = 4;
+    uint internal constant RATE_PRECISION = 10**6; // 1,000,000, precision for ETH to token conversion rate
 
     // mapping from lock time (in months) to bonus percentage
     // we treat 1 month = 4 weeks for simplicity
@@ -49,15 +48,9 @@ contract TokenSale is Ownable, ReentrancyGuard {
     constructor(
         IERC20 _salesToken,
         IVotingEscrow _ve,
-        uint256 _wlRate, // whitelist sale ETH to token conversion rate
-        uint256 _publicRate, // public sale ETH to token conversion rate
-        uint256 _tokensToSell
+        uint _conversionRate,
+        uint _tokensToSell
     ) {
-        require(
-            _wlRate >= _publicRate,
-            "WL price must not be higher than public"
-        );
-
         // token must be 18 decimals, otherwise we'll have problems with ETH conversion rate
         require(_salesToken.decimals() == 18, "Token must be 18 decimals");
 
@@ -66,8 +59,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
         salesToken = _salesToken;
         ve = _ve;
         tokensToSell = _tokensToSell;
-        wlRate = _wlRate;
-        publicRate = _publicRate;
+        conversionRate = _conversionRate;
         status = Status.NOT_STARTED;
         bonusPercentages[1] = 6; // 1 mo lock = 6% bonus in veVS
         bonusPercentages[2] = 12; // 2 mo lock = 12% bonus
@@ -105,7 +97,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
         status = Status.FINISHED_UNCLAIMABLE;
 
         // transfer ETH to owner
-        uint256 remainingETH = address(this).balance;
+        uint remainingETH = address(this).balance;
         (bool success, ) = msg.sender.call{value: remainingETH}("");
         require(success, "Failed to transfer ether");
     }
@@ -120,7 +112,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
 
     // user address + capAmount must match merkle proof
     // capAmount is the max amount of ETH user can commit for WL sale
-    function commitWhitelist(uint256 capAmount, bytes32[] calldata merkleProof) external payable nonReentrant {
+    function commitWhitelist(uint capAmount, bytes32[] calldata merkleProof) external payable nonReentrant {
         require(msg.value > 0, "No ETH sent");
         require(capAmount > 0, "Cap amount must be > 0");
         require(status == Status.WHITELIST_ROUND, "Not whitelist round");
@@ -128,14 +120,15 @@ contract TokenSale is Ownable, ReentrancyGuard {
         // Verify the merkle proof
         bytes32 node = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, capAmount))));
         require(MerkleProof.verify(merkleProof, merkleRoot, node), "Invalid proof");
-        require(wlCommitments[msg.sender] + msg.value <= capAmount, "Individual cap reached");
+        require(wlEthCommitments[msg.sender] + msg.value <= capAmount, "Individual cap reached");
 
-        uint256 tokenAmount = msg.value * wlRate;
+        uint tokenAmount = msg.value * conversionRate / RATE_PRECISION;
 
         require(totalTokensSold + tokenAmount <= tokensToSell, "Global cap reached");
 
         claimableAmounts[msg.sender] += tokenAmount;
-        wlCommitments[msg.sender] += msg.value;
+        wlEthCommitments[msg.sender] += msg.value;
+        totalEthCommitments[msg.sender] += msg.value;
         totalTokensSold += tokenAmount;
         reservedTokens += ((tokenAmount * (100 + maxBonusPercentage)) / 100);
     }
@@ -143,40 +136,39 @@ contract TokenSale is Ownable, ReentrancyGuard {
     function commitPublic() external payable nonReentrant {
         require(status == Status.PUBLIC_ROUND, "Not public round");
 
-        uint256 tokenAmount = msg.value * publicRate;
+        uint tokenAmount = msg.value * conversionRate / RATE_PRECISION;
         require(totalTokensSold + tokenAmount <= tokensToSell, "Global cap reached");
         claimableAmounts[msg.sender] += tokenAmount;
+        totalEthCommitments[msg.sender] += msg.value;
         totalTokensSold += tokenAmount;
         reservedTokens += ((tokenAmount * (100 + maxBonusPercentage)) / 100);
     }
 
-    function claim() external nonReentrant {
+    // user can optionally lock their tokens for 1/2/4/8/12 months to get bonus in liquid $VS
+    // if lockMonths == 0, no lock
+    // bonus amount = lockAmount * bonusPercentage / 100
+    function claimAndLock(uint lockAmount, uint lockMonths) external nonReentrant {
         require(status == Status.FINISHED_CLAIMABLE, "Cannot claim yet");
         require(claimableAmounts[msg.sender] > 0, "Nothing to claim");
+        require(lockMonths == 0 || bonusPercentages[lockMonths] > 0, "Must lock 1/2/4/8/12 months");
 
-        uint256 amt = claimableAmounts[msg.sender];
+        uint amt = claimableAmounts[msg.sender];
+        require(amt >= lockAmount, "Invalid lock amount");
         claimableAmounts[msg.sender] = 0;
-        _safeTransfer(address(salesToken), msg.sender, amt);
+        uint bonus = 0;
 
-        // decrease the amount of reserved tokens
-        reservedTokens -= (amt + amt * maxBonusPercentage / 100);
-    }
+        if (lockAmount > 0 && lockMonths > 0) {
+            bonus = getBonusAmount(lockAmount, lockMonths);
+            
+            // convert lock duration to seconds
+            uint lockDurationSeconds = lockMonths * 4 weeks;
 
-    function claimAndLock(uint lockMonths) external nonReentrant {
-        require(status == Status.FINISHED_CLAIMABLE, "Cannot claim yet");
-        require(claimableAmounts[msg.sender] > 0, "Nothing to claim");
-        require(bonusPercentages[lockMonths] > 0, "Must lock 1/2/4/8/12 months");
+            // mint veVS of lockAmount
+            ve.create_lock_for(lockAmount + bonus, lockDurationSeconds, msg.sender);
+        }
 
-        // convert lock duration to seconds
-        uint256 lockDurationSeconds = lockMonths * 4 weeks;
-
-        uint256 amt = claimableAmounts[msg.sender];
-        claimableAmounts[msg.sender] = 0;
-        ve.create_lock_for(amt, lockDurationSeconds, msg.sender);
-
-        // transfer bonus tokens
-        uint256 bonus = amt * bonusPercentages[lockMonths] / 100;
-        _safeTransfer(address(salesToken), msg.sender, bonus);
+        // transfer liquid tokens
+        _safeTransfer(address(salesToken), msg.sender, amt - lockAmount);
 
         // decrease the amount of reserved tokens
         reservedTokens -= (amt + amt * maxBonusPercentage / 100);
@@ -185,12 +177,12 @@ contract TokenSale is Ownable, ReentrancyGuard {
     receive() external payable {}
 
     function emergencyWithdrawETH() external onlyOwner {
-        uint256 remainingETH = address(this).balance;
+        uint remainingETH = address(this).balance;
         msg.sender.call{value: remainingETH}("");
     }
 
     function emergencyWithdrawTokens() external onlyOwner {
-        uint256 allTokens = salesToken.balanceOf(address(this));
+        uint allTokens = salesToken.balanceOf(address(this));
         _safeTransfer(address(salesToken), msg.sender, allTokens);
     }
 
@@ -202,16 +194,30 @@ contract TokenSale is Ownable, ReentrancyGuard {
 
     // View functions
 
-    function getClaimableAmount(address _user) public view returns (uint256) {
+    function getClaimableAmount(address _user) public view returns (uint) {
         return claimableAmounts[_user];
     }
 
-    function getWlCommitment(address _user) public view returns (uint256) {
-        return wlCommitments[_user];
+    function getWlCommitment(address _user) public view returns (uint) {
+        return wlEthCommitments[_user];
     }
 
-    function getRemainingTokens() public view returns (uint256) {
+    function getTotalCommitment(address _user) public view returns (uint) {
+        return totalEthCommitments[_user];
+    }
+
+    function getBonusAmount(uint lockAmount, uint lockMonths) public view returns (uint) {
+        return lockAmount * bonusPercentages[lockMonths] / 100;
+    }
+
+    // returns the unsold tokens + unallocated bonus in the contract
+    function getRemainingTokens() public view returns (uint) {
         return salesToken.balanceOf(address(this)) - reservedTokens;
+    }
+
+    // returns the unsold tokens (not including any remaining bonus)
+    function getUnsoldTokens() public view returns (uint) {
+        return tokensToSell - totalTokensSold;
     }
 
     function getStatus() public view returns (uint) {
@@ -220,14 +226,14 @@ contract TokenSale is Ownable, ReentrancyGuard {
     
     // Helper functions
 
-    function _safeTransfer(address token, address to, uint256 value) internal {
+    function _safeTransfer(address token, address to, uint value) internal {
         require(token.code.length > 0);
         (bool success, bytes memory data) =
         token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
         require(success && (data.length == 0 || abi.decode(data, (bool))));
     }
 
-    function _safeTransferFrom(address token, address from, address to, uint256 value) internal {
+    function _safeTransferFrom(address token, address from, address to, uint value) internal {
         require(token.code.length > 0);
         (bool success, bytes memory data) =
         token.call(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value));
