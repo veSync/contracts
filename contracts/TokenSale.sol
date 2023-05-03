@@ -23,6 +23,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
     uint public immutable tokensToSell;
     uint public immutable conversionRate; // 1 ETH = `conversionRate` * 1,000,000 tokens
     uint public immutable maxBonusPercentage;
+    uint public immutable bonusEndTime; // The timestamp when IDO lock Bonus period ends
 
     Status public status;
     
@@ -48,10 +49,12 @@ contract TokenSale is Ownable, ReentrancyGuard {
 
         constructor(
         uint _conversionRate,
-        uint _tokensToSell
+        uint _tokensToSell,
+        uint _bonusEndTime
     ) {
         tokensToSell = _tokensToSell;
         conversionRate = _conversionRate;
+        bonusEndTime = _bonusEndTime;
 
         status = Status.NOT_STARTED;
 
@@ -170,8 +173,12 @@ contract TokenSale is Ownable, ReentrancyGuard {
         uint bonus = 0;
 
         if (lockAmount > 0 && lockMonths > 0) {
-            bonus = getBonusAmount(lockAmount, lockMonths);
             
+            // only give bonus before bonusEndTime
+            if (block.timestamp < bonusEndTime) {
+                bonus = getBonusAmount(lockAmount, lockMonths);
+            }
+
             // convert lock duration to seconds
             uint lockDurationSeconds = lockMonths * 4 weeks;
 
