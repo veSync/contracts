@@ -2,6 +2,8 @@ pragma solidity 0.8.13;
 
 import './BaseTest.sol';
 
+
+
 contract TokenSaleTest is BaseTest {
 
     TokenSale sale;
@@ -9,6 +11,26 @@ contract TokenSaleTest is BaseTest {
     address user1 = 0x2D66cdD2F86548AaA2B37D7FFbd6aCE28f4D71c4; // WL cap 0.25E
     address user2 = 0xaAA8267C8675Cd632688E726622099D1959797D0; // WL cap 0.25E
     address user3 = 0xF8b3bE51C7D4d1B572b069b182FAE38E04322d6d; // WL cap 0.5E
+
+    event Deposit(
+        address indexed provider,
+        uint tokenId,
+        uint value,
+        uint indexed locktime,
+        DepositType deposit_type,
+        uint ts
+    );
+
+    event Transfer(address indexed from, address indexed to, uint value);
+
+    enum DepositType {
+        DEPOSIT_FOR_TYPE,
+        CREATE_LOCK_TYPE,
+        INCREASE_LOCK_AMOUNT,
+        INCREASE_UNLOCK_TIME,
+        MERGE_TYPE,
+        SPLIT_TYPE
+    }
 
     function setUp() public {
         deployCoins();
@@ -23,7 +45,7 @@ contract TokenSaleTest is BaseTest {
 
         // rate 1E = 20000 Token
         // cap 30000 Token (1.5 E)
-        sale = new TokenSale(20000 * 1e6, 30000e18);
+        sale = new TokenSale(20000 * 1e6, 30000e18, block.timestamp + 1 weeks);
 
         // merkle root is generated in example_proof.json
         sale.setMerkleRoot(0x8d8edd611c4eda08c1a22a6a9b6c3eadc6e4d2e5c7a475268b5be06aaa269de1);
@@ -206,6 +228,14 @@ contract TokenSaleTest is BaseTest {
 
         // user1 claims and locks 40% (2000e18) for 1 year (12 months)
         vm.prank(user1);
+
+  
+
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(address(sale), address(ve),  2600e18);
+
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(address(sale), address(user1),  3000e18);
         sale.claimAndLock(2000e18, 12);
 
         // test: user1 will have 3000 unlocked, and 1 veNFT
@@ -231,6 +261,9 @@ contract TokenSaleTest is BaseTest {
         vm.expectRevert("Must lock 1/2/4/8/12 months");
         sale.claimAndLock(20000e18, 3);
 
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(address(sale), address(ve), 23600e18);
+
         // lock 4 months
         sale.claimAndLock(20000e18, 4);
 
@@ -250,6 +283,96 @@ contract TokenSaleTest is BaseTest {
 
         // test: owner can claim remaining unallocated bonus
         expectedReturned = 20000e18 * 12 / 100;
+        assertEq(balanceAfter - balanceBefore, expectedReturned);
+
+        // test: totalTokensSold is correct
+        assertEq(sale.totalTokensSold(), 25000e18);
+    }
+
+
+    function testBonusEnds() public {
+        sale.start();
+
+        // user 1 WL amount = 0.25E
+        bytes32[] memory proof1 = new bytes32[](2);
+        proof1[0] = 0x91febd0c2d769895ead0f7873c044f3a367bf2ff9849f6800bc4d2187443cb30;
+        proof1[1] = 0xc0fe84ab9aa5f745f7cc7efa9948f35d0a09665a15e62073e466e8841a593c47;
+        vm.prank(user1);
+        sale.commitWhitelist{value: 0.25 ether}(0.25e18, proof1);
+
+        // test: claimable amount is correct
+        assertEq(sale.getClaimableAmount(user1), 5000e18);
+
+        sale.startPublicRound();
+
+        // user 2 commits public round
+        vm.prank(user2);
+        sale.commitPublic{value: 1 ether}();
+        assertEq(sale.getClaimableAmount(user2), 20000e18);
+
+        // owner calls finish and enable claim
+        uint256 balanceBefore = address(this).balance;
+        sale.finish();
+        uint256 balanceAfter = address(this).balance;
+
+        vm.expectRevert("Token not set");
+        sale.enableClaim();
+
+        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
+        sale.setSaleTokenAndVe(IERC20(address(VELO)), IVotingEscrow(address(ve)));
+
+        sale.enableClaim();
+
+        // test: ETH is transferred to owner
+        assertEq(balanceAfter - balanceBefore, 1.25 ether);
+
+        // user1 claims and locks 40% (2000e18) for 1 year (12 months)
+        vm.prank(user1);
+
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(address(sale), address(ve), 2600e18);
+
+        sale.claimAndLock(2000e18, 12);
+
+        // test: user1 will have 3000 unlocked, and 1 veNFT
+        assertEq(VELO.balanceOf(user1), 3000e18);
+        assertEq(ve.ownerOf(1), address(user1));
+        assertEq(ve.balanceOf(address(user1)), 1);
+
+        // test: owner can claim remaining
+        balanceBefore = VELO.balanceOf(address(this));
+        sale.withdrawRemainingTokens();
+        balanceAfter = VELO.balanceOf(address(this));
+        uint expectedReturned = 39000e18 - 20000e18 * 130 / 100 - 3000e18 - 2000e18 * 130 / 100; // (2000e18 * 30 / 100 is the bonus but in veVS)
+        assertEq(balanceAfter - balanceBefore, expectedReturned);
+
+        vm.warp(block.timestamp + 1 weeks);
+        // user2 claims and locks 100% for 4 months
+        vm.startPrank(user2);
+
+        // after bonusEndTime
+
+        // no bonus
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(address(sale), address(ve),  20000e18);
+
+        // lock 4 months
+        sale.claimAndLock(20000e18, 4);
+
+        vm.stopPrank();
+
+        // test: 18% liquid token bonus, and 1 veNFT
+        assertEq(VELO.balanceOf(user2), 0);
+        assertEq(ve.ownerOf(2), address(user2));
+        assertEq(ve.balanceOf(address(user2)), 1);
+
+
+        balanceBefore = VELO.balanceOf(address(this));
+        sale.withdrawRemainingTokens();
+        balanceAfter = VELO.balanceOf(address(this));
+
+        // test: owner can claim remaining unallocated bonus
+        expectedReturned = 20000e18 * 12 / 100 + 20000e18 * 18 / 100;
         assertEq(balanceAfter - balanceBefore, expectedReturned);
 
         // test: totalTokensSold is correct
