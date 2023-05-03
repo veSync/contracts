@@ -23,7 +23,7 @@ contract TokenSaleTest is BaseTest {
 
         // rate 1E = 20000 Token
         // cap 30000 Token (1.5 E)
-        sale = new TokenSale(IERC20(address(VELO)), IVotingEscrow(address(ve)), 20000 * 1e6, 30000e18);
+        sale = new TokenSale(20000 * 1e6, 30000e18);
 
         // merkle root is generated in example_proof.json
         sale.setMerkleRoot(0x8d8edd611c4eda08c1a22a6a9b6c3eadc6e4d2e5c7a475268b5be06aaa269de1);
@@ -35,8 +35,6 @@ contract TokenSaleTest is BaseTest {
     }
 
     function testNoBonus() public {
-        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
-
         // test: status is correct
         assertEq(sale.getStatus(), 0);
 
@@ -128,6 +126,12 @@ contract TokenSaleTest is BaseTest {
         sale.claimAndLock(0, 0);
         vm.stopPrank();
 
+        vm.expectRevert("Token not set");
+        sale.enableClaim();
+
+        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
+        sale.setSaleTokenAndVe(IERC20(address(VELO)), IVotingEscrow(address(ve)));
+
         sale.enableClaim();
         
         // test: status is correct
@@ -165,7 +169,6 @@ contract TokenSaleTest is BaseTest {
     }
 
     function testBonus() public {
-        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
         sale.start();
 
         // user 1 WL amount = 0.25E
@@ -189,6 +192,12 @@ contract TokenSaleTest is BaseTest {
         uint256 balanceBefore = address(this).balance;
         sale.finish();
         uint256 balanceAfter = address(this).balance;
+
+        vm.expectRevert("Token not set");
+        sale.enableClaim();
+
+        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
+        sale.setSaleTokenAndVe(IERC20(address(VELO)), IVotingEscrow(address(ve)));
 
         sale.enableClaim();
 
