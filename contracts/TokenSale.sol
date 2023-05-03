@@ -157,6 +157,11 @@ contract TokenSale is Ownable, ReentrancyGuard {
     }
 
     // user can optionally lock their tokens for 1/2/4/8/12 months to get bonus in liquid $VS
+    // 1 mo = 4 epochs
+    // 2 mo = 8 epochs
+    // 4 mo = 16 epochs
+    // 8 mo = 32 epochs
+    // 12 mo = 52 epochs (1 year, this is different)
     // if lockMonths == 0, no lock
     // bonus amount = lockAmount * bonusPercentage / 100
     function claimAndLock(uint lockAmount, uint lockMonths) external nonReentrant {
@@ -173,7 +178,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
             bonus = getBonusAmount(lockAmount, lockMonths);
             
             // convert lock duration to seconds
-            uint lockDurationSeconds = lockMonths * 4 weeks;
+            uint lockDurationSeconds = lockMonths == 12 ? 52 weeks : lockMonths * 4 weeks;
 
             // mint veVS of lockAmount
             ve.create_lock_for(lockAmount + bonus, lockDurationSeconds, msg.sender);
