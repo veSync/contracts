@@ -26,57 +26,36 @@ const remappings = fs
   .map((line) => line.trim().split("="));
 
 const config: HardhatUserConfig = {
-  defaultNetwork: "zkTestnet",
+  defaultNetwork: "zkTest",
   networks: {
-    hardhat: {
-      initialBaseFeePerGas: 0,
-      forking: {
-        url: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-        blockNumber: 16051852
-      }
-    },
-    opera: {
-      url: "https://rpc.fantom.network",
-      accounts: [process.env.PRIVATE_KEY!],
-      zksync: false,
-    },
-    ftmTestnet: {
-      url: "https://rpc.testnet.fantom.network",
-      accounts: [process.env.PRIVATE_KEY!],
-      zksync: false,
-    },
-    optimisticEthereum: {
-      url: "https://mainnet.optimism.io",
-      accounts: [process.env.PRIVATE_KEY!],
-      zksync: false,
-    },
-    optimisticKovan: {
-      url: "https://kovan.optimism.io",
-      accounts: [process.env.PRIVATE_KEY!],
-      zksync: false,
-    },
-    zkTestnet: {
+    zkTest: {
       url: "https://testnet.era.zksync.dev",
-      ethNetwork: "goerli", // Can also be the RPC URL of the Ethereum network (e.g. `https://goerli.infura.io/v3/<API_KEY>`)
+      ethNetwork: "goerli",
       zksync: true,
+      accounts: [process.env.ZK_TEST_KEY],
+    },
+    zkMain: {
+      url: "https://mainnet.era.zksync.io",
+      ethNetwork: "mainnet",
+      zksync: true,
+      accounts: [process.env.ZK_MAINNET_KEY],
     },
   },
-  // solidity: {
-  //   version: "0.8.13",
-  //   settings: {
-  //     optimizer: {
-  //       enabled: true,
-  //       runs: 200,
-  //     },
-  //   },
-  // },
+
   zksolc: {
-    version: "1.3.5",
+    version: "1.3.8",
     compilerSource: "binary",
     settings: {},
   },
+
   solidity: {
     version: "0.8.13",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
   },
   // This fully resolves paths for imports in the ./lib directory for Hardhat
   preprocess: {
@@ -98,12 +77,9 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      opera: process.env.FTM_SCAN_API_KEY!,
-      ftmTestnet: process.env.FTM_SCAN_API_KEY!,
-      optimisticEthereum: process.env.OP_SCAN_API_KEY!,
-      optimisticKovan: process.env.OP_SCAN_API_KEY!,
-    }
-  }
+      zkTest: process.env.ZK_SCAN_API_KEY!,
+    },
+  },
 };
 
 export default config;

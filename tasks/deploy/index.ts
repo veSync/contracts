@@ -1,3 +1,2 @@
-import "./op.ts";
-import "./ftm.ts";
-import "./init.ts";
+import "./ido.ts";
+import "./enableClam.ts";
