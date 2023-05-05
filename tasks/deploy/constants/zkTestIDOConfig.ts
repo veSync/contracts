@@ -1,15 +1,15 @@
 const testIDOConfig = {
-  
-  merkleRoot: "0x2c62e4b12c162266ae9ac1e53c1eb8ee6e0a82a66264733d3b57ee394c27e182",
+  merkleRoot:
+    "0x5eaff386f5bfeac293970a4d02ff1422e2e084a621f933dcb5294252f8e00d16",
 
-  tokenToSaleAmount: "500000000000000000000000",
-  
+  tokenToSaleAmount: "5314285714206000000000000",
+
   // 1 ETH = 0.000000035 Token
   conversionRate: 28571428571,
 
-  BonusEndTimestamp: 1683221400,
+  BonusEndTimestamp: 1684368000,
 
-  deployPK: process.env.ZK_TEST_DEPLOY_PRIVATE_KEY
+  deployPK: process.env.ZK_TEST_DEPLOY_PRIVATE_KEY,
 };
 
 export default testIDOConfig;

@@ -1,15 +1,12 @@
 const EnableClaimConfig = {
-  
-    vsAddress: "",
+  vsAddress: "",
 
-    tokenSaleAddress: "",
+  tokenSaleAddress: "",
 
-    votingEscrowAddress: "",
+  votingEscrowAddress: "",
 
-    // extra for round precision
-    tokenAndBonusToSaleAmount: "",
-  
-  };
-  
+  // extra 2 token for round precision
+  tokenAndBonusToSaleAmount: "6908601428467800000000000",
+};
+
 export default EnableClaimConfig;
-  

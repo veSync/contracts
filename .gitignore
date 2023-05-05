@@ -3,6 +3,13 @@ args.js
 
 .env
 
+*.zip
+
+whitelist.json
+proof.json
+
+*.DS_Store
+
 # Foundry
 cache/
 out/

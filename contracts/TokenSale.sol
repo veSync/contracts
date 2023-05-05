@@ -77,12 +77,17 @@ contract TokenSale is Ownable, ReentrancyGuard {
         require(address(salesToken) == address(0), "Token already set");
         require(address(ve) == address(0), "ve already set");
 
+        // avoid accidentally setting the wrong address
+        require(address(_salesToken) != address(0), "Invalid token address");
+        require(address(_ve) != address(0), "Invalid ve address");
+
         // token must be 18 decimals, otherwise we'll have problems with ETH conversion rate
         require(_salesToken.decimals() == 18, "Token must be 18 decimals");
         require(_ve.token() == address(_salesToken), "ve token address mismatch");
 
         salesToken = _salesToken;
         ve = _ve;
+
         _salesToken.approve(address(_ve), type(uint).max);
     }
 
@@ -150,6 +155,7 @@ contract TokenSale is Ownable, ReentrancyGuard {
 
     function commitPublic() external payable nonReentrant {
         require(status == Status.PUBLIC_ROUND, "Not public round");
+        require(msg.value > 0, "No ETH sent");
 
         uint tokenAmount = msg.value * conversionRate / RATE_PRECISION;
         require(totalTokensSold + tokenAmount <= tokensToSell, "Global cap reached");
