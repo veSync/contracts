@@ -7,6 +7,7 @@ import "hardhat-abi-exporter";
 
 import "@matterlabs/hardhat-zksync-deploy";
 import "@matterlabs/hardhat-zksync-solc";
+import "@matterlabs/hardhat-zksync-verify";
 
 import "./tasks/accounts";
 import "./tasks/deploy";
@@ -32,13 +33,14 @@ const config: HardhatUserConfig = {
       url: "https://testnet.era.zksync.dev",
       ethNetwork: "goerli",
       zksync: true,
-      accounts: [process.env.ZK_TEST_KEY],
+      accounts: [process.env.ZK_TEST_KEY as string],
+      verifyURL: 'https://zksync2-testnet-explorer.zksync.dev/contract_verification'
     },
     zkMain: {
       url: "https://mainnet.era.zksync.io",
       ethNetwork: "mainnet",
       zksync: true,
-      accounts: [process.env.ZK_MAINNET_KEY],
+      accounts: [process.env.ZK_MAINNET_KEY as string],
     },
   },
 
