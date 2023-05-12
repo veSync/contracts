@@ -67,6 +67,12 @@ Mainnet
 npx hardhat deploy:app online --network zkMain
 ```
 
+### Create Gauge for a pair
+
+```
+npx hardhat deploy:createGauge <pair address> --network <network>
+```
+
 ## How to generate merkle proof for whitelist
 
 1. Put addresses and sales cap ETH amount (in Wei) in `whitelist.json`
