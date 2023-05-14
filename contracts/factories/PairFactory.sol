@@ -12,7 +12,7 @@ contract PairFactory is IPairFactory {
 
     uint256 public stableFee;
     uint256 public volatileFee;
-    uint256 public constant MAX_FEE = 5; // 0.05%
+    uint256 public constant MAX_FEE = 20; // 0.2%
     address public feeManager;
     address public pendingFeeManager;
 
@@ -31,7 +31,7 @@ contract PairFactory is IPairFactory {
         isPaused = false;
         feeManager = msg.sender;
         stableFee = 2; // 0.02%
-        volatileFee = 2;
+        volatileFee = 20; // 0.2%
     }
 
     function allPairsLength() external view returns (uint) {
