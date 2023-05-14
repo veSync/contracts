@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import "contracts/interfaces/IVelo.sol";
+import "contracts/interfaces/IVS.sol";
 
-contract Velo is IVelo {
+contract VS is IVS {
 
     string public constant name = "veSync";
     string public constant symbol = "VS";

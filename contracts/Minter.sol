@@ -4,7 +4,7 @@ pragma solidity 0.8.13;
 import "contracts/libraries/Math.sol";
 import "contracts/interfaces/IMinter.sol";
 import "contracts/interfaces/IRewardsDistributor.sol";
-import "contracts/interfaces/IVelo.sol";
+import "contracts/interfaces/IVS.sol";
 import "contracts/interfaces/IVoter.sol";
 import "contracts/interfaces/IVotingEscrow.sol";
 
@@ -19,11 +19,11 @@ contract Minter is IMinter {
     uint internal constant MAX_TEAM_RATE = 500; // 500 bps = 5%
     uint internal constant OVERRIDE_ALLOWED_DURATION = 4 weeks;
     uint public immutable _launchTime;
-    IVelo public immutable _velo;
+    IVS public immutable _vs;
     IVoter public immutable _voter;
     IVotingEscrow public immutable _ve;
     IRewardsDistributor public immutable _rewards_distributor;
-    uint public weekly = 15_000_000 * 1e18; // standard weekly emission. the initial value represents a starting weekly emission of 15M VELO (VELO has 18 decimals)
+    uint public weekly = 15_000_000 * 1e18; // standard weekly emission. the initial value represents a starting weekly emission of 15M VS (VS has 18 decimals)
     uint public weeklyOverride = 0; // we allow admin to override the weekly emission to a lower amount for the first 4 weeks. 0 means no override
     uint public active_period;
 
@@ -42,7 +42,7 @@ contract Minter is IMinter {
         initializer = msg.sender;
         team = msg.sender;
         teamRate = 200; // 200 bps = 2%
-        _velo = IVelo(IVotingEscrow(__ve).token());
+        _vs = IVS(IVotingEscrow(__ve).token());
         _voter = IVoter(__voter);
         _ve = IVotingEscrow(__ve);
         _rewards_distributor = IRewardsDistributor(__rewards_distributor);
@@ -58,8 +58,8 @@ contract Minter is IMinter {
         uint max 
     ) external {
         require(initializer == msg.sender);
-        _velo.mint(address(this), max);
-        _velo.approve(address(_ve), type(uint).max);
+        _vs.mint(address(this), max);
+        _vs.approve(address(_ve), type(uint).max);
         for (uint i = 0; i < claimants.length; i++) {
             _ve.create_lock_for(amounts[i], LOCK, claimants[i]);
         }
@@ -104,7 +104,7 @@ contract Minter is IMinter {
 
     // calculate circulating supply as total token supply - locked supply
     function circulating_supply() public view returns (uint) {
-        return _velo.totalSupply() - _ve.totalSupply();
+        return _vs.totalSupply() - _ve.totalSupply();
     }
 
     // emission calculation is 1% of available supply to mint adjusted by circulating / total supply
@@ -130,11 +130,11 @@ contract Minter is IMinter {
     // calculate inflation and adjust ve balances accordingly
     function calculate_growth(uint _minted) public view returns (uint) {
         uint _veTotal = _ve.totalSupply();
-        uint _veloTotal = _velo.totalSupply();
+        uint _vsTotal = _vs.totalSupply();
         return
-            (((((_minted * _veTotal) / _veloTotal) * _veTotal) / _veloTotal) *
+            (((((_minted * _veTotal) / _vsTotal) * _veTotal) / _vsTotal) *
                 _veTotal) /
-            _veloTotal /
+            _vsTotal /
             2;
     }
 
@@ -157,17 +157,17 @@ contract Minter is IMinter {
             uint _teamEmissions = (teamRate * (_growth + updatedWeekly)) /
                 (PRECISION_BPS - teamRate);
             uint _required = _growth + updatedWeekly + _teamEmissions;
-            uint _balanceOf = _velo.balanceOf(address(this));
+            uint _balanceOf = _vs.balanceOf(address(this));
             if (_balanceOf < _required) {
-                _velo.mint(address(this), _required - _balanceOf);
+                _vs.mint(address(this), _required - _balanceOf);
             }
 
-            require(_velo.transfer(team, _teamEmissions));
-            require(_velo.transfer(address(_rewards_distributor), _growth));
+            require(_vs.transfer(team, _teamEmissions));
+            require(_vs.transfer(address(_rewards_distributor), _growth));
             _rewards_distributor.checkpoint_token(); // checkpoint token balance that was just minted in rewards distributor
             _rewards_distributor.checkpoint_total_supply(); // checkpoint supply
 
-            _velo.approve(address(_voter), updatedWeekly);
+            _vs.approve(address(_voter), updatedWeekly);
             _voter.notifyRewardAmount(updatedWeekly);
 
             emit Mint(msg.sender, updatedWeekly, circulating_supply(), circulating_emission());

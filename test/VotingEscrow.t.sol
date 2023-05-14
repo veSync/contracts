@@ -12,14 +12,14 @@ contract VotingEscrowTest is BaseTest {
         mintStables();
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1e21;
-        mintVelo(owners, amounts);
+        mintVS(owners, amounts);
 
         VeArtProxy artProxy = new VeArtProxy();
-        escrow = new VotingEscrow(address(VELO), address(artProxy));
+        escrow = new VotingEscrow(address(VSTOKEN), address(artProxy));
     }
 
     function testFreeze() public {
-        VELO.approve(address(escrow), 1e22);
+        VSTOKEN.approve(address(escrow), 1e22);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
         escrow.create_lock_and_freeze_for(1e20, lockDuration, address(this));
         assertTrue(escrow.isFrozen(1));
@@ -42,7 +42,7 @@ contract VotingEscrowTest is BaseTest {
     }
 
     function testWithdrawFrozenAfterUnlock() public {
-        VELO.approve(address(escrow), 1e22);
+        VSTOKEN.approve(address(escrow), 1e22);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
         escrow.create_lock_and_freeze_for(1e20, lockDuration, address(this));
         
@@ -54,7 +54,7 @@ contract VotingEscrowTest is BaseTest {
     }
     
     function testTransferAfterUnfreeze() public {
-        VELO.approve(address(escrow), 1e22);
+        VSTOKEN.approve(address(escrow), 1e22);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
         escrow.create_lock_and_freeze_for(1e20, lockDuration, address(this));
 
@@ -67,7 +67,7 @@ contract VotingEscrowTest is BaseTest {
     }
 
     function testCreateLock() public {
-        VELO.approve(address(escrow), 1e21);
+        VSTOKEN.approve(address(escrow), 1e21);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
 
         // Balance should be zero before and 1 after creating the lock
@@ -78,7 +78,7 @@ contract VotingEscrowTest is BaseTest {
     }
 
     function testCreateLockOutsideAllowedZones() public {
-        VELO.approve(address(escrow), 1e21);
+        VSTOKEN.approve(address(escrow), 1e21);
         uint256 oneWeek = 7 * 24 * 3600;
         uint256 oneYear = 365 * 24 * 3600;
         vm.expectRevert(abi.encodePacked('Voting lock can be 1 year max'));
@@ -86,7 +86,7 @@ contract VotingEscrowTest is BaseTest {
     }
 
     function testWithdraw() public {
-        VELO.approve(address(escrow), 1e21);
+        VSTOKEN.approve(address(escrow), 1e21);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
         escrow.create_lock(1e21, lockDuration);
 
@@ -99,14 +99,14 @@ contract VotingEscrowTest is BaseTest {
         vm.roll(block.number + 1); // mine the next block
         escrow.withdraw(tokenId);
 
-        assertEq(VELO.balanceOf(address(owner)), 1e21);
+        assertEq(VSTOKEN.balanceOf(address(owner)), 1e21);
         // Check that the NFT is burnt
         assertEq(escrow.balanceOfNFT(tokenId), 0);
         assertEq(escrow.ownerOf(tokenId), address(0));
     }
 
     function testSplit() public {
-        VELO.approve(address(escrow), 1e21);
+        VSTOKEN.approve(address(escrow), 1e21);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
         escrow.create_lock(1e21, lockDuration);
 
@@ -140,7 +140,7 @@ contract VotingEscrowTest is BaseTest {
         // tokenURI should not work for non-existent token ids
         vm.expectRevert(abi.encodePacked("Query for nonexistent token"));
         escrow.tokenURI(999);
-        VELO.approve(address(escrow), 1e21);
+        VSTOKEN.approve(address(escrow), 1e21);
         uint256 lockDuration = 7 * 24 * 3600; // 1 week
         escrow.create_lock(1e21, lockDuration);
 

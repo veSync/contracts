@@ -19,13 +19,13 @@ async function deploy(taskArgs: any) {
 
   var tokenSaleAddress = useConfig.tokenSaleAddress;
 
-  const velo = await hre.ethers.getContractAt("Velo", useConfig.vsAddress);
+  const vs = await hre.ethers.getContractAt("VS", useConfig.vsAddress);
   const tokenSale = await hre.ethers.getContractAt(
     "TokenSale",
     useConfig.tokenSaleAddress
   );
 
-  await velo.approve(tokenSaleAddress, useConfig.tokenAndBonusToSaleAmount);
+  await vs.approve(tokenSaleAddress, useConfig.tokenAndBonusToSaleAmount);
   await tokenSale.setSaleTokenAndVe(
     useConfig.vsAddress,
     useConfig.votingEscrowAddress

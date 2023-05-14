@@ -18,31 +18,31 @@ contract StakingTest is BaseTest {
         amounts[0] = 1e27;
         amounts[1] = 1e27;
         amounts[2] = 1e27;
-        mintVelo(owners, amounts);
+        mintVS(owners, amounts);
         mintLR(owners, amounts);
         mintStake(owners, amounts);
-        escrow = new TestVotingEscrow(address(VELO));
+        escrow = new TestVotingEscrow(address(VSTOKEN));
         voter = new TestVoter();
     }
 
     function createLock() public {
         deployBaseCoins();
 
-        VELO.approve(address(escrow), TOKEN_1);
+        VSTOKEN.approve(address(escrow), TOKEN_1);
         escrow.create_lock(TOKEN_1, 365 * 86400);
     }
 
     function createLock2() public {
         createLock();
 
-        owner2.approve(address(VELO), address(escrow), TOKEN_1);
+        owner2.approve(address(VSTOKEN), address(escrow), TOKEN_1);
         owner2.create_lock(address(escrow), TOKEN_1, 365 * 86400);
     }
 
     function createLock3() public {
         createLock2();
 
-        owner3.approve(address(VELO), address(escrow), TOKEN_1);
+        owner3.approve(address(VSTOKEN), address(escrow), TOKEN_1);
         owner3.create_lock(address(escrow), TOKEN_1, 365 * 86400);
     }
 
@@ -56,7 +56,7 @@ contract StakingTest is BaseTest {
         address gaugeAddr = gaugeFactory.last_gauge();
         gauge = Gauge(gaugeAddr);
 
-        staking = new TestStakingRewards(address(stake), address(VELO));
+        staking = new TestStakingRewards(address(stake), address(VSTOKEN));
     }
 
     function depositEmpty() public {
@@ -67,7 +67,7 @@ contract StakingTest is BaseTest {
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
 
-        assertEq(gauge.earned(address(VELO), address(owner)), staking.earned(address(owner)));
+        assertEq(gauge.earned(address(VSTOKEN), address(owner)), staking.earned(address(owner)));
     }
 
     function depositEmpty2() public {
@@ -78,7 +78,7 @@ contract StakingTest is BaseTest {
         owner2.stakeStake(address(staking), 1e21);
         owner2.deposit(address(gauge), 1e21, 2);
 
-        assertEq(gauge.earned(address(VELO), address(owner2)), staking.earned(address(owner2)));
+        assertEq(gauge.earned(address(VSTOKEN), address(owner2)), staking.earned(address(owner2)));
     }
 
     function depositEmpty3() public {
@@ -89,27 +89,27 @@ contract StakingTest is BaseTest {
         owner3.stakeStake(address(staking), 1e21);
         owner3.deposit(address(gauge), 1e21, 3);
 
-        assertEq(gauge.earned(address(VELO), address(owner3)), staking.earned(address(owner3)));
+        assertEq(gauge.earned(address(VSTOKEN), address(owner3)), staking.earned(address(owner3)));
     }
 
     function notifyRewardsAndCompare() public {
         depositEmpty3();
 
-        VELO.approve(address(staking), TOKEN_1M);
-        VELO.approve(address(gauge), TOKEN_1M);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        VSTOKEN.approve(address(staking), TOKEN_1M);
+        VSTOKEN.approve(address(gauge), TOKEN_1M);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.notifyRewardAmount(TOKEN_1M);
-        gauge.notifyRewardAmount(address(VELO), TOKEN_1M);
+        gauge.notifyRewardAmount(address(VSTOKEN), TOKEN_1M);
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
-        VELO.approve(address(staking), TOKEN_1M);
-        VELO.approve(address(gauge), TOKEN_1M);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
+        VSTOKEN.approve(address(staking), TOKEN_1M);
+        VSTOKEN.approve(address(gauge), TOKEN_1M);
         staking.notifyRewardAmount(TOKEN_1M);
-        gauge.notifyRewardAmount(address(VELO), TOKEN_1M);
+        gauge.notifyRewardAmount(address(VSTOKEN), TOKEN_1M);
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
     }
 
     function notifyReward2AndCompare() public {
@@ -133,38 +133,38 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
         staking.withdraw(1e21);
@@ -173,8 +173,8 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         vm.warp(block.timestamp + 604800);
         vm.roll(block.number + 1);
         staking.withdraw(1e21);
@@ -183,8 +183,8 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
     }
 
     function notifyRewardsAndCompareOwner2() public {
@@ -278,32 +278,32 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
         staking.withdraw(1e21);
@@ -312,8 +312,8 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         vm.warp(block.timestamp + 604800);
         vm.roll(block.number + 1);
         staking.withdraw(1e21);
@@ -322,29 +322,29 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
     }
 
     function notifyRewardsAndCompareSet2() public {
         depositAndWithdrawWithoutRewards();
 
-        VELO.approve(address(staking), TOKEN_1M);
-        VELO.approve(address(gauge), TOKEN_1M);
+        VSTOKEN.approve(address(staking), TOKEN_1M);
+        VSTOKEN.approve(address(gauge), TOKEN_1M);
         staking.notifyRewardAmount(TOKEN_1M);
-        gauge.notifyRewardAmount(address(VELO), TOKEN_1M);
+        gauge.notifyRewardAmount(address(VSTOKEN), TOKEN_1M);
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
-        VELO.approve(address(staking), TOKEN_1M);
-        VELO.approve(address(gauge), TOKEN_1M);
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
+        VSTOKEN.approve(address(staking), TOKEN_1M);
+        VSTOKEN.approve(address(gauge), TOKEN_1M);
         staking.notifyRewardAmount(TOKEN_1M);
-        gauge.notifyRewardAmount(address(VELO), TOKEN_1M);
+        gauge.notifyRewardAmount(address(VSTOKEN), TOKEN_1M);
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         assertEq(gauge.derivedSupply(), staking.totalSupply());
     }
 
@@ -370,32 +370,32 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         staking.withdraw(1e21);
         gauge.withdraw(1e21);
         stake.approve(address(staking), 1e21);
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         vm.warp(block.timestamp + 1800);
         vm.roll(block.number + 1);
         staking.withdraw(1e21);
@@ -404,16 +404,16 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
-        // uint256 sb = VELO.balanceOf(address(owner));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
+        // uint256 sb = VSTOKEN.balanceOf(address(owner));
         staking.getReward();
-        // uint256 sa = VELO.balanceOf(address(owner));
-        // uint256 gb = VELO.balanceOf(address(owner));
+        // uint256 sa = VSTOKEN.balanceOf(address(owner));
+        // uint256 gb = VSTOKEN.balanceOf(address(owner));
         address[] memory tokens = new address[](1);
-        tokens[0] = address(VELO);
+        tokens[0] = address(VSTOKEN);
         gauge.getReward(address(owner), tokens);
-        // uint256 ga = VELO.balanceOf(address(owner));
+        // uint256 ga = VSTOKEN.balanceOf(address(owner));
         vm.warp(block.timestamp + 604800);
         vm.roll(block.number + 1);
         staking.withdraw(1e21);
@@ -422,8 +422,8 @@ contract StakingTest is BaseTest {
         stake.approve(address(gauge), 1e21);
         staking.stake(1e21);
         gauge.deposit(1e21, 1);
-        gauge.batchRewardPerToken(address(VELO), 200);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        gauge.batchRewardPerToken(address(VSTOKEN), 200);
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         assertGt(staking.rewardPerTokenStored(), 1330355346300364281191);
     }
 
@@ -464,7 +464,7 @@ contract StakingTest is BaseTest {
         owner2.deposit(address(gauge), 1e21, 2);
         owner2.getStakeReward(address(staking));
         address[] memory tokens = new address[](1);
-        tokens[0] = address(VELO);
+        tokens[0] = address(VSTOKEN);
         owner2.getGaugeReward(address(gauge), address(owner2), tokens);
         vm.warp(block.timestamp + 604800);
         vm.roll(block.number + 1);
@@ -474,7 +474,7 @@ contract StakingTest is BaseTest {
         owner2.approve(address(stake), address(gauge), 1e21);
         owner2.stakeStake(address(staking), 1e21);
         owner2.deposit(address(gauge), 1e21, 2);
-        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VELO)));
+        assertEq(staking.rewardPerTokenStored(), gauge.rewardPerTokenStored(address(VSTOKEN)));
         assertGt(staking.rewardPerTokenStored(), 1330355346300364281191);
     }
 

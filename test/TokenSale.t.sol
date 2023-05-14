@@ -38,10 +38,10 @@ contract TokenSaleTest is BaseTest {
         uint256[] memory amounts = new uint256[](1);
         owners[0] = address(this);
         amounts[0] = 39000e18;
-        mintVelo(owners, amounts);
+        mintVS(owners, amounts);
         
         VeArtProxy artProxy = new VeArtProxy();
-        ve = new VotingEscrow(address(VELO), address(artProxy));
+        ve = new VotingEscrow(address(VSTOKEN), address(artProxy));
 
         // rate 1E = 20000 Token
         // cap 30000 Token (1.5 E)
@@ -151,8 +151,8 @@ contract TokenSaleTest is BaseTest {
         vm.expectRevert("Token not set");
         sale.enableClaim();
 
-        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
-        sale.setSaleTokenAndVe(IERC20(address(VELO)), IVotingEscrow(address(ve)));
+        VSTOKEN.approve(address(sale), 39000e18); // approve extra 30% bonus
+        sale.setSaleTokenAndVe(IERC20(address(VSTOKEN)), IVotingEscrow(address(ve)));
 
         sale.enableClaim();
         
@@ -162,26 +162,26 @@ contract TokenSaleTest is BaseTest {
         // test: user1 claims
         vm.prank(user1);
         sale.claimAndLock(0, 0);
-        assertEq(VELO.balanceOf(user1), 5000e18);
+        assertEq(VSTOKEN.balanceOf(user1), 5000e18);
 
         // test: user2 claims
         vm.prank(user2);
         sale.claimAndLock(0, 0);
-        assertEq(VELO.balanceOf(user2), 2000e18);
+        assertEq(VSTOKEN.balanceOf(user2), 2000e18);
 
         // test: user3 claims
         vm.startPrank(user3);
         sale.claimAndLock(0, 0);
-        assertEq(VELO.balanceOf(user3), 16000e18);
+        assertEq(VSTOKEN.balanceOf(user3), 16000e18);
 
         // test: cannot claim twice
         vm.expectRevert("Nothing to claim");
         sale.claimAndLock(0, 0);
         vm.stopPrank();
 
-        balanceBefore = VELO.balanceOf(address(this));
+        balanceBefore = VSTOKEN.balanceOf(address(this));
         sale.withdrawRemainingTokens();
-        balanceAfter = VELO.balanceOf(address(this));
+        balanceAfter = VSTOKEN.balanceOf(address(this));
 
         // test: 30% bonus tokens are returned because no one got bonus 
         assertEq(balanceAfter - balanceBefore, 30000e18 * 30 / 100 + sale.getUnsoldTokens());
@@ -218,8 +218,8 @@ contract TokenSaleTest is BaseTest {
         vm.expectRevert("Token not set");
         sale.enableClaim();
 
-        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
-        sale.setSaleTokenAndVe(IERC20(address(VELO)), IVotingEscrow(address(ve)));
+        VSTOKEN.approve(address(sale), 39000e18); // approve extra 30% bonus
+        sale.setSaleTokenAndVe(IERC20(address(VSTOKEN)), IVotingEscrow(address(ve)));
 
         sale.enableClaim();
 
@@ -239,14 +239,14 @@ contract TokenSaleTest is BaseTest {
         sale.claimAndLock(2000e18, 12);
 
         // test: user1 will have 3000 unlocked, and 1 veNFT
-        assertEq(VELO.balanceOf(user1), 3000e18);
+        assertEq(VSTOKEN.balanceOf(user1), 3000e18);
         assertEq(ve.ownerOf(1), address(user1));
         assertEq(ve.balanceOf(address(user1)), 1);
 
         // test: owner can claim remaining
-        balanceBefore = VELO.balanceOf(address(this));
+        balanceBefore = VSTOKEN.balanceOf(address(this));
         sale.withdrawRemainingTokens();
-        balanceAfter = VELO.balanceOf(address(this));
+        balanceAfter = VSTOKEN.balanceOf(address(this));
         uint expectedReturned = 39000e18 - 20000e18 * 130 / 100 - 3000e18 - 2000e18 * 130 / 100; // (2000e18 * 30 / 100 is the bonus but in veVS)
         assertEq(balanceAfter - balanceBefore, expectedReturned);
 
@@ -268,7 +268,7 @@ contract TokenSaleTest is BaseTest {
         sale.claimAndLock(20000e18, 4);
 
         // test: 18% liquid token bonus, and 1 veNFT
-        assertEq(VELO.balanceOf(user2), 0);
+        assertEq(VSTOKEN.balanceOf(user2), 0);
         assertEq(ve.ownerOf(2), address(user2));
         assertEq(ve.balanceOf(address(user2)), 1);
 
@@ -277,9 +277,9 @@ contract TokenSaleTest is BaseTest {
         sale.claimAndLock(20000e18, 4);
         vm.stopPrank();
 
-        balanceBefore = VELO.balanceOf(address(this));
+        balanceBefore = VSTOKEN.balanceOf(address(this));
         sale.withdrawRemainingTokens();
-        balanceAfter = VELO.balanceOf(address(this));
+        balanceAfter = VSTOKEN.balanceOf(address(this));
 
         // test: owner can claim remaining unallocated bonus
         expectedReturned = 20000e18 * 12 / 100;
@@ -318,8 +318,8 @@ contract TokenSaleTest is BaseTest {
         vm.expectRevert("Token not set");
         sale.enableClaim();
 
-        VELO.approve(address(sale), 39000e18); // approve extra 30% bonus
-        sale.setSaleTokenAndVe(IERC20(address(VELO)), IVotingEscrow(address(ve)));
+        VSTOKEN.approve(address(sale), 39000e18); // approve extra 30% bonus
+        sale.setSaleTokenAndVe(IERC20(address(VSTOKEN)), IVotingEscrow(address(ve)));
 
         sale.enableClaim();
 
@@ -335,14 +335,14 @@ contract TokenSaleTest is BaseTest {
         sale.claimAndLock(2000e18, 12);
 
         // test: user1 will have 3000 unlocked, and 1 veNFT
-        assertEq(VELO.balanceOf(user1), 3000e18);
+        assertEq(VSTOKEN.balanceOf(user1), 3000e18);
         assertEq(ve.ownerOf(1), address(user1));
         assertEq(ve.balanceOf(address(user1)), 1);
 
         // test: owner can claim remaining
-        balanceBefore = VELO.balanceOf(address(this));
+        balanceBefore = VSTOKEN.balanceOf(address(this));
         sale.withdrawRemainingTokens();
-        balanceAfter = VELO.balanceOf(address(this));
+        balanceAfter = VSTOKEN.balanceOf(address(this));
         uint expectedReturned = 39000e18 - 20000e18 * 130 / 100 - 3000e18 - 2000e18 * 130 / 100; // (2000e18 * 30 / 100 is the bonus but in veVS)
         assertEq(balanceAfter - balanceBefore, expectedReturned);
 
@@ -362,14 +362,14 @@ contract TokenSaleTest is BaseTest {
         vm.stopPrank();
 
         // test: 18% liquid token bonus, and 1 veNFT
-        assertEq(VELO.balanceOf(user2), 0);
+        assertEq(VSTOKEN.balanceOf(user2), 0);
         assertEq(ve.ownerOf(2), address(user2));
         assertEq(ve.balanceOf(address(user2)), 1);
 
 
-        balanceBefore = VELO.balanceOf(address(this));
+        balanceBefore = VSTOKEN.balanceOf(address(this));
         sale.withdrawRemainingTokens();
-        balanceAfter = VELO.balanceOf(address(this));
+        balanceAfter = VSTOKEN.balanceOf(address(this));
 
         // test: owner can claim remaining unallocated bonus
         expectedReturned = 20000e18 * 12 / 100 + 20000e18 * 18 / 100;

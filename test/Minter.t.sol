@@ -19,10 +19,10 @@ contract MinterTest is BaseTest {
         mintStables();
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1e25;
-        mintVelo(owners, amounts);
+        mintVS(owners, amounts);
 
         VeArtProxy artProxy = new VeArtProxy();
-        escrow = new VotingEscrow(address(VELO), address(artProxy));
+        escrow = new VotingEscrow(address(VSTOKEN), address(artProxy));
         factory = new PairFactory();
         router = new Router(address(factory), address(owner));
         gaugeFactory = new GaugeFactory();
@@ -31,28 +31,28 @@ contract MinterTest is BaseTest {
 
         address[] memory tokens = new address[](2);
         tokens[0] = address(FRAX);
-        tokens[1] = address(VELO);
+        tokens[1] = address(VSTOKEN);
         voter.initialize(tokens, address(owner));
-        VELO.approve(address(escrow), TOKEN_1);
+        VSTOKEN.approve(address(escrow), TOKEN_1);
         escrow.create_lock(TOKEN_1, 365 * 86400);
         distributor = new RewardsDistributor(address(escrow));
         escrow.setVoter(address(voter));
 
         minter = new Minter(address(voter), address(escrow), address(distributor));
         distributor.setDepositor(address(minter));
-        VELO.setMinter(address(minter));
+        VSTOKEN.setMinter(address(minter));
 
-        VELO.approve(address(router), TOKEN_1);
+        VSTOKEN.approve(address(router), TOKEN_1);
         FRAX.approve(address(router), TOKEN_1);
-        router.addLiquidity(address(FRAX), address(VELO), false, TOKEN_1, TOKEN_1, 0, 0, address(owner), block.timestamp);
+        router.addLiquidity(address(FRAX), address(VSTOKEN), false, TOKEN_1, TOKEN_1, 0, 0, address(owner), block.timestamp);
 
-        address pair = router.pairFor(address(FRAX), address(VELO), false);
+        address pair = router.pairFor(address(FRAX), address(VSTOKEN), false);
 
-        VELO.approve(address(voter), 5 * TOKEN_100K);
+        VSTOKEN.approve(address(voter), 5 * TOKEN_100K);
         voter.createGauge(pair);
         vm.roll(block.number + 1); // fwd 1 block because escrow.balanceOfNFT() returns 0 in same block
         assertGt(escrow.balanceOfNFT(1), 995063075414519385);
-        assertEq(VELO.balanceOf(address(escrow)), TOKEN_1);
+        assertEq(VSTOKEN.balanceOf(address(escrow)), TOKEN_1);
 
         address[] memory pools = new address[](1);
         pools[0] = pair;
@@ -72,7 +72,7 @@ contract MinterTest is BaseTest {
         assertEq(escrow.ownerOf(2), address(owner));
         assertEq(escrow.ownerOf(3), address(0));
         vm.roll(block.number + 1);
-        assertEq(VELO.balanceOf(address(minter)), 19 * TOKEN_1M);
+        assertEq(VSTOKEN.balanceOf(address(minter)), 19 * TOKEN_1M);
     }
     
     function testMintFrozen() public {
@@ -98,34 +98,34 @@ contract MinterTest is BaseTest {
         // end of 1st week
         vm.warp(block.timestamp + 1 weeks);
         minter.setWeeklyOverride(2 * TOKEN_1M);
-        uint voterBalanceBefore = VELO.balanceOf(address(voter));
+        uint voterBalanceBefore = VSTOKEN.balanceOf(address(voter));
         minter.update_period();
-        uint voterBalanceAfter = VELO.balanceOf(address(voter));
+        uint voterBalanceAfter = VSTOKEN.balanceOf(address(voter));
         assertEq(minter.weekly(), 15 * TOKEN_1M * 9900 / 10000); // 15M, weekly value is not changed by override
         assertEq(voterBalanceAfter - voterBalanceBefore, 2 * TOKEN_1M); // voter balance changes by override amount
 
         // 2nd week, cancel override
         vm.warp(block.timestamp + 1 weeks);
         minter.setWeeklyOverride(0);
-        voterBalanceBefore = VELO.balanceOf(address(voter));
+        voterBalanceBefore = VSTOKEN.balanceOf(address(voter));
         minter.update_period();
-        voterBalanceAfter = VELO.balanceOf(address(voter));
+        voterBalanceAfter = VSTOKEN.balanceOf(address(voter));
         assertEq(minter.weekly(), 15 * TOKEN_1M * 9900 / 10000 * 9900 / 10000);
         assertEq(voterBalanceAfter - voterBalanceBefore, minter.weekly()); // voter balance changes by weekly amount
 
         // 3rd week, set override to 3M
         vm.warp(block.timestamp + 1 weeks);
         minter.setWeeklyOverride(3 * TOKEN_1M);
-        voterBalanceBefore = VELO.balanceOf(address(voter));
+        voterBalanceBefore = VSTOKEN.balanceOf(address(voter));
         minter.update_period();
-        voterBalanceAfter = VELO.balanceOf(address(voter));
+        voterBalanceAfter = VSTOKEN.balanceOf(address(voter));
         assertEq(voterBalanceAfter - voterBalanceBefore, 3 * TOKEN_1M); // voter balance changes by override amount
 
         // 4th week, even though override is set, weekly value is not changed
         vm.warp(block.timestamp + 1 weeks);
-        voterBalanceBefore = VELO.balanceOf(address(voter));
+        voterBalanceBefore = VSTOKEN.balanceOf(address(voter));
         minter.update_period();
-        voterBalanceAfter = VELO.balanceOf(address(voter));
+        voterBalanceAfter = VSTOKEN.balanceOf(address(voter));
         assertEq(minter.weekly(), voterBalanceAfter - voterBalanceBefore);
     }
 
@@ -150,7 +150,7 @@ contract MinterTest is BaseTest {
         uint256 weekly = minter.weekly();
         console2.log(weekly);
         console2.log(minter.calculate_growth(weekly));
-        console2.log(VELO.totalSupply());
+        console2.log(VSTOKEN.totalSupply());
         console2.log(escrow.totalSupply());
 
         vm.warp(block.timestamp + 86400 * 7);
