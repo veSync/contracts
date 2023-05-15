@@ -13,10 +13,7 @@ contract VS is IVS {
     mapping(address => uint) public balanceOf;
     mapping(address => mapping(address => uint)) public allowance;
 
-    bool public initialMinted;
     address public minter;
-    address public redemptionReceiver;
-    address public merkleClaim;
 
     event Transfer(address indexed from, address indexed to, uint value);
     event Approval(address indexed owner, address indexed spender, uint value);
@@ -30,13 +27,6 @@ contract VS is IVS {
     function setMinter(address _minter) external {
         require(msg.sender == minter);
         minter = _minter;
-    }
-
-    // Initial mint. Can only be called once.
-    function initialMint(address _recipient) external {
-        require(msg.sender == minter && !initialMinted);
-        initialMinted = true;
-        _mint(_recipient, 82 * 1e6 * 1e18);
     }
 
     function approve(address _spender, uint _value) external returns (bool) {
