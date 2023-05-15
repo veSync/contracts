@@ -153,12 +153,26 @@ contract Minter is IMinter {
         return block.timestamp < _launchTime + OVERRIDE_ALLOWED_DURATION && weeklyOverride > 0 && weeklyOverride < weekly;
     }
 
+    function _calculate_growth(uint _minted, uint _veTotal, uint _vsTotal, uint growthParam) internal pure returns(uint) {
+        uint numerator = growthParam * _veTotal/ PRECISION_GROWTH;
+
+        uint _growth =  (_minted * growthParam * _veTotal) /
+         _vsTotal * numerator / 
+         _vsTotal * numerator/
+         _vsTotal /
+         PRECISION_GROWTH /
+         2;
+        return _growth;
+    }
+
     // calculate inflation and adjust ve balances accordingly
     // epochNum is the number of epochs since start
     // epochNum = 1 means the first epoch after start
     function calculate_growth(uint _minted, uint epochNum) public view returns (uint) {
+        
         uint _veTotal = _ve.totalSupply();
         uint _vsTotal = _vs.totalSupply();
+        _vsTotal -=  _vs.balanceOf(address(0));
 
         uint growthParam;
         if (overrideGrowthParam != 0) {
@@ -166,13 +180,10 @@ contract Minter is IMinter {
         } else {
             growthParam = earlyGrowthParams[epochNum];
         }
-        uint _growth = 
-            (((((_minted * growthParam * _veTotal) / _vsTotal) * _veTotal) / _vsTotal) *
-                _veTotal) /
-            _vsTotal /
-            PRECISION_GROWTH /
-             2;
-        uint _maxGrowth = _minted * (MAX_REBASING_RATE + PRECISION_BPS)/PRECISION_BPS;
+
+        uint _growth = _calculate_growth(_minted, _veTotal, _vsTotal, growthParam);
+
+        uint _maxGrowth = _minted * MAX_REBASING_RATE/PRECISION_BPS;
         _growth = Math.min(_growth, _maxGrowth);
         return _growth;
     }
