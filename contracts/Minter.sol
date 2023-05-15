@@ -221,6 +221,7 @@ contract Minter is IMinter {
 
             require(_vs.transfer(team, _teamEmissions));
             require(_vs.transfer(address(_rewards_distributor), _growth));
+            // Notice: Rebase rewards claim is available one full epoch after tokens are locked
             _rewards_distributor.checkpoint_token(); // checkpoint token balance that was just minted in rewards distributor
             _rewards_distributor.checkpoint_total_supply(); // checkpoint supply
 
