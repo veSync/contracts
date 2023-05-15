@@ -12,9 +12,11 @@ import "contracts/interfaces/IVotingEscrow.sol";
 
 contract Minter is IMinter {
     uint internal constant WEEK = 86400 * 7; // allows minting once per week (reset every Thursday 00:00 UTC)
-    uint internal constant EMISSION_BPS = 9900;
+    uint internal constant EMISSION_BPS = 9850;
     uint internal constant TAIL_EMISSION_BPS = 20;
     uint internal constant PRECISION_BPS = 10000;
+    uint internal constant MAX_REBASING_RATE = 3000;
+    uint internal constant PRECISION_GROWTH = 1000000;
     uint internal constant LOCK = 86400 * 365;
     uint internal constant MAX_TEAM_RATE = 500; // 500 bps = 5%
     uint internal constant OVERRIDE_ALLOWED_DURATION = 4 weeks;
@@ -23,14 +25,19 @@ contract Minter is IMinter {
     IVoter public immutable _voter;
     IVotingEscrow public immutable _ve;
     IRewardsDistributor public immutable _rewards_distributor;
-    uint public weekly = 15_000_000 * 1e18; // standard weekly emission. the initial value represents a starting weekly emission of 15M VS (VS has 18 decimals)
+    uint public weekly = 4_000_000 * 1e18; // standard weekly emission. the initial value represents a starting weekly emission of 4M VS (VS has 18 decimals)
     uint public weeklyOverride = 0; // we allow admin to override the weekly emission to a lower amount for the first 4 weeks. 0 means no override
     uint public active_period;
 
+    bool public tokenInitialized;
     address public initializer;
     address public team;
     address public pendingTeam;
     uint public teamRate;
+
+    uint[] public earlyGrowthParams; // for early growth param finetune
+    uint public overrideGrowthParam; // for long term growth calculation
+    uint public startPeriod; // record the start timestamp of the first epoch 
 
     event Mint(address indexed sender, uint weekly, uint circulating_supply, uint circulating_emission);
 
@@ -41,7 +48,7 @@ contract Minter is IMinter {
     ) {
         initializer = msg.sender;
         team = msg.sender;
-        teamRate = 200; // 200 bps = 2%
+        teamRate = 100; // 100 bps = 1%
         _vs = IVS(IVotingEscrow(__ve).token());
         _voter = IVoter(__voter);
         _ve = IVotingEscrow(__ve);
@@ -50,21 +57,40 @@ contract Minter is IMinter {
         active_period = ((block.timestamp + (2 * WEEK)) / WEEK) * WEEK;
     }
 
-    // initialize the minter, minting initial supply and creating veNFTs for the claimants
+    // initialize the minter, distribute initial supply to the targets
     // notice: if you want to airdrop untransferable veNFT to protocols, use `mintFrozen` instead
-    function initialize(
-        address[] memory claimants,
-        uint[] memory amounts,
-        uint max 
+    function initializeToken(
+        address[] memory targets,
+        uint[] memory amounts
     ) external {
-        require(initializer == msg.sender);
-        _vs.mint(address(this), max);
+        require(initializer == msg.sender && tokenInitialized == false);
         _vs.approve(address(_ve), type(uint).max);
-        for (uint i = 0; i < claimants.length; i++) {
-            _ve.create_lock_for(amounts[i], LOCK, claimants[i]);
+        // initialize token
+        for (uint i = 0; i < targets.length; i++) {
+            _vs.mint(targets[i], amounts[i]);
         }
-        initializer = address(0);
+        tokenInitialized = true;
+    }
+
+    function start() external {
+        require(initializer == msg.sender && tokenInitialized == true, "not initializeToken");
+        require(earlyGrowthParams.length > 0 || overrideGrowthParam > 0, "no growthParam"); 
         active_period = ((block.timestamp) / WEEK) * WEEK; // allow minter.update_period() to mint new emissions on the upcoming Thursday (because 1/1/1970 is a Thursday)
+        startPeriod = active_period; // record permanently
+
+        // renounce the initializer
+        initializer = address(0);
+    }
+
+    function setEarlyGrowthParams(uint[] memory params) external {
+        require(msg.sender == team, 'not team');
+        earlyGrowthParams = params;
+    }
+
+    function setOverrideGrowthParam(uint param) external {
+        require(msg.sender == team, 'not team');
+        // if overrideGrowthParam is nonzero number, the earlyGrowthParams will be invalidated
+        overrideGrowthParam = param;
     }
 
     function setTeam(address _team) external {
@@ -128,14 +154,25 @@ contract Minter is IMinter {
     }
 
     // calculate inflation and adjust ve balances accordingly
-    function calculate_growth(uint _minted) public view returns (uint) {
+    function calculate_growth(uint _minted, uint epochNum) public view returns (uint) {
         uint _veTotal = _ve.totalSupply();
         uint _vsTotal = _vs.totalSupply();
-        return
-            (((((_minted * _veTotal) / _vsTotal) * _veTotal) / _vsTotal) *
+
+        uint growthParam;
+        if (overrideGrowthParam != 0) {
+            growthParam = overrideGrowthParam;
+        } else {
+            growthParam = earlyGrowthParams[epochNum];
+        }
+        uint _growth = 
+            (((((_minted * growthParam * _veTotal) / _vsTotal) * _veTotal) / _vsTotal) *
                 _veTotal) /
             _vsTotal /
-            2;
+            PRECISION_GROWTH /
+             2;
+        uint _maxGrowth = _minted * (MAX_REBASING_RATE + PRECISION_BPS)/PRECISION_BPS;
+        _growth = Math.min(_growth, _maxGrowth);
+        return _growth;
     }
 
     // update period can only be called once per cycle (1 week)
@@ -143,6 +180,9 @@ contract Minter is IMinter {
         uint _period = active_period;
         if (block.timestamp >= _period + WEEK && initializer == address(0)) { // only trigger if new week
             _period = (block.timestamp / WEEK) * WEEK;
+
+            uint epochNum = (_period - startPeriod)/WEEK;
+
             active_period = _period;
 
             // weekly emission decays by 1% per week, regardless of override
@@ -153,7 +193,7 @@ contract Minter is IMinter {
                 updatedWeekly = weeklyOverride;
             }
 
-            uint _growth = calculate_growth(updatedWeekly);
+            uint _growth = calculate_growth(updatedWeekly, epochNum);
             uint _teamEmissions = (teamRate * (_growth + updatedWeekly)) /
                 (PRECISION_BPS - teamRate);
             uint _required = _growth + updatedWeekly + _teamEmissions;
