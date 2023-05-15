@@ -13,7 +13,8 @@ contract PrivateSaleClaim is Ownable, ReentrancyGuard {
 
     IERC20 public salesToken;
     IVotingEscrow public ve;
-    uint public immutable maxBonusPercentage;
+    uint public immutable maxBonusPercentage; // 30%
+    uint public immutable liquidPercentage; // 80% liquid VS, 20% veVS locked for 1 yr
     uint public immutable bonusEndTime; // The timestamp when lock Bonus period ends
     
     mapping(address => bool) public hasClaimed; // whether user has claimed
@@ -41,6 +42,7 @@ contract PrivateSaleClaim is Ownable, ReentrancyGuard {
         bonusPercentages[8] = 24; // 8 mo lock = 24% bonus
         bonusPercentages[12] = 30; // 12 mo lock = 30% bonus
         maxBonusPercentage = 30; // 30% max bonus
+        liquidPercentage = 80; // 80% liquid VS
     }
 
     // owner can set merkle root
@@ -49,7 +51,7 @@ contract PrivateSaleClaim is Ownable, ReentrancyGuard {
     }
 
     // owner need to set sales token and ve token before enabling claiming
-    // owner should approve spending of _salesToken, and have at least 130% in the wallet
+    // owner should approve spending of _salesToken, and have at least 124% in the wallet
     function setSaleTokenAndVe(IERC20 _salesToken, IVotingEscrow _ve, uint _tokensToClaim) external onlyOwner {
         require(address(salesToken) == address(0), "Token already set");
         require(address(ve) == address(0), "ve already set");
@@ -66,7 +68,9 @@ contract PrivateSaleClaim is Ownable, ReentrancyGuard {
 
         _salesToken.approve(address(_ve), type(uint).max);
         
-        reservedTokens = _tokensToClaim + _tokensToClaim * maxBonusPercentage / 100;
+        // reserved is the maximum possible amount of tokens that can be transferred to users
+        // max possible bonus is 30% * 80% of tokensToClaim (only the liquid part is eligible for bonus)
+        reservedTokens = _tokensToClaim + _tokensToClaim * liquidPercentage * maxBonusPercentage / 10000;
         _safeTransferFrom(address(_salesToken), msg.sender, address(this), reservedTokens);
     }
     
@@ -84,7 +88,10 @@ contract PrivateSaleClaim is Ownable, ReentrancyGuard {
         require(address(salesToken) != address(0), "Not initialized");
         require(!hasClaimed[msg.sender], "Nothing to claim");
         require(lockMonths == 0 || bonusPercentages[lockMonths] > 0, "Must lock 1/2/4/8/12 months");
-        require(claimAmount >= lockAmount, "Invalid lock amount");
+
+        uint originalLiquidAmount = claimAmount * liquidPercentage / 100; // 80% liquid
+        uint oneYearLockAmount = claimAmount - originalLiquidAmount; // 20% locked for 1 year
+        require(originalLiquidAmount >= lockAmount, "Invalid lock amount");
         
         // Verify the merkle proof
         bytes32 node = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, claimAmount))));
@@ -108,10 +115,13 @@ contract PrivateSaleClaim is Ownable, ReentrancyGuard {
         }
 
         // transfer liquid tokens
-        _safeTransfer(address(salesToken), msg.sender, claimAmount - lockAmount);
+        _safeTransfer(address(salesToken), msg.sender, originalLiquidAmount - lockAmount);
+
+        // create 1yr lock
+        ve.create_lock_for(oneYearLockAmount, 52 weeks, msg.sender);
 
         // decrease the amount of reserved tokens
-        reservedTokens -= (claimAmount + claimAmount * maxBonusPercentage / 100);
+        reservedTokens -= (claimAmount + originalLiquidAmount * maxBonusPercentage / 100);
     }
 
     function emergencyWithdrawTokens() external onlyOwner {

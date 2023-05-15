@@ -144,6 +144,7 @@ contract TokenSaleTest is BaseTest {
         assertEq(sale.getStatus(), 3);
 
         // test: still cannot claim before "enableClaim"
+        vm.startPrank(user3);
         vm.expectRevert("Cannot claim yet");
         sale.claimAndLock(0, 0);
         vm.stopPrank();
