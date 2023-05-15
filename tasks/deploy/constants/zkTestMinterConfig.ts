@@ -11,7 +11,6 @@ const zkTestMinterConfig = {
     EcosystemAmount: "20000000000000000000000000",//20M
     LiquidityAmount:  "5000000000000000000000000",//5M
     MarketingAmount: "11000000000000000000000000",//7M + 4M = 11M
-    TotalAmount:    "100000000000000000000000000", //100M
     deployPK: process.env.ZK_TEST_DEPLOY_PRIVATE_KEY,
   };
   
