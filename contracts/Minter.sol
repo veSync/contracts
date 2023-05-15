@@ -188,13 +188,17 @@ contract Minter is IMinter {
         return _growth;
     }
 
+    function current_epoch_num() public view returns (uint) {
+        return ((block.timestamp / WEEK) * WEEK - startPeriod)/WEEK;
+    } 
+
     // update period can only be called once per cycle (1 week)
     function update_period() external returns (uint) {
         uint _period = active_period;
         if (block.timestamp >= _period + WEEK && initializer == address(0)) { // only trigger if new week
             _period = (block.timestamp / WEEK) * WEEK;
 
-            uint epochNum = (_period - startPeriod)/WEEK;
+            uint epochNum = current_epoch_num();
 
             active_period = _period;
 
