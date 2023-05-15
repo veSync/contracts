@@ -614,6 +614,8 @@ contract PairTest is BaseTest {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = TOKEN_1;
         minter.initializeToken(claimants, amounts);
+        minter.setOverrideGrowthParam(1000000);
+        minter.start();
         minter.update_period();
         voter.updateGauge(address(gauge));
         console2.log(VSTOKEN.balanceOf(address(distributor)));

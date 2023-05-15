@@ -66,10 +66,12 @@ contract MinterTest is BaseTest {
         deployBase();
 
         // owner has 100M token VS
-        address[] memory claimants = new address[](1);
+        address[] memory claimants = new address[](2);
         claimants[0] = address(owner);
-        uint256[] memory amounts = new uint256[](1);
+        claimants[1] = address(owner2);
+        uint256[] memory amounts = new uint256[](2);
         amounts[0] = TOKEN_100M;
+        amounts[1] = TOKEN_1M;
         
         uint balanceBefore = VSTOKEN.balanceOf(address(owner));
         minter.initializeToken(claimants, amounts);
@@ -79,6 +81,10 @@ contract MinterTest is BaseTest {
         assertEq(escrow.ownerOf(2), address(0));
         assertEq(VSTOKEN.balanceOf(address(minter)), 0);
         assertEq(balanceAfter - balanceBefore, TOKEN_100M);
+
+        // owner creates lock for itself
+        VSTOKEN.approve(address(escrow), TOKEN_100M);
+        escrow.create_lock(TOKEN_100M, 365 * 86400);
 
         vm.roll(block.number + 1);
     }
@@ -164,32 +170,32 @@ contract MinterTest is BaseTest {
         console2.log(VSTOKEN.totalSupply());
         console2.log(escrow.totalSupply());
 
-        // vm.warp(block.timestamp + 86400 * 7);
-        // vm.roll(block.number + 1);
-        // minter.update_period();
-        // console2.log(distributor.claimable(1));
-        // distributor.claim(1);
-        // vm.warp(block.timestamp + 86400 * 7);
-        // vm.roll(block.number + 1);
-        // minter.update_period();
-        // console2.log(distributor.claimable(1));
-        // uint256[] memory tokenIds = new uint256[](1);
-        // tokenIds[0] = 1;
-        // distributor.claim_many(tokenIds);
-        // vm.warp(block.timestamp + 86400 * 7);
-        // vm.roll(block.number + 1);
-        // minter.update_period();
-        // console2.log(distributor.claimable(1));
-        // distributor.claim(1);
-        // vm.warp(block.timestamp + 86400 * 7);
-        // vm.roll(block.number + 1);
-        // minter.update_period();
-        // console2.log(distributor.claimable(1));
-        // distributor.claim_many(tokenIds);
-        // vm.warp(block.timestamp + 86400 * 7);
-        // vm.roll(block.number + 1);
-        // minter.update_period();
-        // console2.log(distributor.claimable(1));
-        // distributor.claim(1);
+        vm.warp(block.timestamp + 86400 * 7);
+        vm.roll(block.number + 1);
+        minter.update_period();
+        console2.log(distributor.claimable(1));
+        distributor.claim(1);
+        vm.warp(block.timestamp + 86400 * 7);
+        vm.roll(block.number + 1);
+        minter.update_period();
+        console2.log(distributor.claimable(1));
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        distributor.claim_many(tokenIds);
+        vm.warp(block.timestamp + 86400 * 7);
+        vm.roll(block.number + 1);
+        minter.update_period();
+        console2.log(distributor.claimable(1));
+        distributor.claim(1);
+        vm.warp(block.timestamp + 86400 * 7);
+        vm.roll(block.number + 1);
+        minter.update_period();
+        console2.log(distributor.claimable(1));
+        distributor.claim_many(tokenIds);
+        vm.warp(block.timestamp + 86400 * 7);
+        vm.roll(block.number + 1);
+        minter.update_period();
+        console2.log(distributor.claimable(1));
+        distributor.claim(1);
     }
 }
