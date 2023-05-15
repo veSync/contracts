@@ -81,27 +81,46 @@ contract MinterTeamEmissions is BaseTest {
         weights[0] = 5000;
         voter.vote(1, pools, weights);
 
-        address[] memory claimants = new address[](1);
-        claimants[0] = address(owner);
-        uint256[] memory amountsToMint = new uint256[](1);
+        address[] memory claimants = new address[](2);
+        claimants[0] = address(owner3);
+        claimants[1] = address(owner2);
+        uint256[] memory amountsToMint = new uint256[](2);
         amountsToMint[0] = TOKEN_1M;
-        minter.initialize(claimants, amountsToMint, 15 * TOKEN_1M);
-        assertEq(escrow.ownerOf(2), address(owner));
-        assertEq(escrow.ownerOf(3), address(0));
-        vm.roll(block.number + 1);
-        assertEq(VSTOKEN.balanceOf(address(minter)), 14 * TOKEN_1M);
+        amountsToMint[1] = TOKEN_100M;
+        vm.expectRevert(abi.encodePacked("not initializeToken"));
+        minter.start();
 
-        uint256 before = VSTOKEN.balanceOf(address(owner));
+        uint256 before2 = VSTOKEN.balanceOf(address(owner2));
+        minter.initializeToken(claimants, amountsToMint);
+
+        vm.expectRevert(abi.encodePacked("no growthParam"));
+        minter.start();
+
+        minter.setOverrideGrowthParam(600);
+        minter.start();
+
+        uint256 before = VSTOKEN.balanceOf(address(owner3));
+        assertEq(before, TOKEN_1M);
+
+        uint256 after2 = VSTOKEN.balanceOf(address(owner2));
+        assertEq(after2 - before2, TOKEN_100M, "owner2 allocation");
+
+        // update has no effect when the first epoch has not ended
         minter.update_period(); // initial period week 1
-        uint256 after_ = VSTOKEN.balanceOf(address(owner));
-        assertEq(minter.weekly(), 15 * TOKEN_1M);
+        uint256 after_ = VSTOKEN.balanceOf(address(owner3));
+        assertEq(minter.weekly(), 4 * TOKEN_1M);
         assertEq(after_ - before, 0);
+
         vm.warp(block.timestamp + 86400 * 7);
         vm.roll(block.number + 1);
-        before = VSTOKEN.balanceOf(address(owner));
+
+        before = VSTOKEN.balanceOf(address(owner3));
+         console.log("test2");
         minter.update_period(); // initial period week 2
-        after_ = VSTOKEN.balanceOf(address(owner));
-        assertLt(minter.weekly(), 15 * TOKEN_1M); // <15M for week shift
+         console.log("test3");
+        after_ = VSTOKEN.balanceOf(address(owner3));
+        assertEq(minter.weekly(), 4 * TOKEN_1M * 9850/10000);
+        assertEq(after_ - before, 0); // not escrow yet
     }
 
     function testChangeTeam() public {
@@ -129,7 +148,7 @@ contract MinterTeamEmissions is BaseTest {
         vm.roll(block.number + 1);
         uint256 beforeTeamSupply = VSTOKEN.balanceOf(address(team));
         uint256 weekly = minter.weekly_emission();
-        uint256 growth = minter.calculate_growth(weekly);
+        uint256 growth = minter.calculate_growth(weekly, 0);
         minter.update_period(); // new period
         uint256 afterTeamSupply = VSTOKEN.balanceOf(address(team));
         uint256 newTeamVS = afterTeamSupply - beforeTeamSupply;
@@ -139,7 +158,7 @@ contract MinterTeamEmissions is BaseTest {
         vm.roll(block.number + 1);
         beforeTeamSupply = VSTOKEN.balanceOf(address(team));
         weekly = minter.weekly_emission();
-        growth = minter.calculate_growth(weekly);
+        growth = minter.calculate_growth(weekly, 0);
         minter.update_period(); // new period
         afterTeamSupply = VSTOKEN.balanceOf(address(team));
         newTeamVS = afterTeamSupply - beforeTeamSupply;
@@ -151,7 +170,7 @@ contract MinterTeamEmissions is BaseTest {
         owner2.transfer(address(VSTOKEN), address(minter), 1e25);
         beforeTeamSupply = VSTOKEN.balanceOf(address(team));
         weekly = minter.weekly_emission();
-        growth = minter.calculate_growth(weekly);
+        growth = minter.calculate_growth(weekly, 0);
         minter.update_period(); // new period
         afterTeamSupply = VSTOKEN.balanceOf(address(team));
         newTeamVS = afterTeamSupply - beforeTeamSupply;
@@ -177,7 +196,7 @@ contract MinterTeamEmissions is BaseTest {
         vm.roll(block.number + 1);
         uint256 beforeTeamSupply = VSTOKEN.balanceOf(address(team));
         uint256 weekly = minter.weekly_emission();
-        uint256 growth = minter.calculate_growth(weekly);
+        uint256 growth = minter.calculate_growth(weekly, 0);
         minter.update_period(); // new period
         uint256 afterTeamSupply = VSTOKEN.balanceOf(address(team));
         uint256 newTeamVS = afterTeamSupply - beforeTeamSupply;

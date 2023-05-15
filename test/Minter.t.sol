@@ -64,11 +64,19 @@ contract MinterTest is BaseTest {
     function initializeVotingEscrow() public {
         deployBase();
 
+        // owner2 has 1M token VS
         address[] memory claimants = new address[](1);
-        claimants[0] = address(owner);
+        claimants[0] = address(owner2);
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = TOKEN_1M;
-        minter.initialize(claimants, amounts, 2e25);
+        
+        // owner has 100M veVS
+        // address teamAddress = address(owner);
+        // uint teamLockAmount = TOKEN_100M;
+        // uint totalSupplyAmount = TOKEN_100M + TOKEN_1M;
+        // minter.initializeToken(totalSupplyAmount, claimants, amounts, teamAddress, teamLockAmount);
+        minter.initializeToken(claimants, amounts);
+        minter.start();
         assertEq(escrow.ownerOf(2), address(owner));
         assertEq(escrow.ownerOf(3), address(0));
         vm.roll(block.number + 1);
@@ -79,8 +87,8 @@ contract MinterTest is BaseTest {
         deployBase();
         address[] memory initialClaimants;
         uint256[] memory initialAmounts;
-        minter.initialize(initialClaimants, initialAmounts, 1e25);
-
+        minter.initializeToken(initialClaimants, initialAmounts);
+        minter.start();
         address[] memory claimants = new address[](2);
         claimants[0] = address(owner);
         claimants[1] = address(owner2);
@@ -149,7 +157,7 @@ contract MinterTest is BaseTest {
 
         uint256 weekly = minter.weekly();
         console2.log(weekly);
-        console2.log(minter.calculate_growth(weekly));
+        console2.log(minter.calculate_growth(weekly, 0));
         console2.log(VSTOKEN.totalSupply());
         console2.log(escrow.totalSupply());
 
