@@ -50,6 +50,7 @@ contract VSVotingTest is BaseTest {
             address(escrow),
             address(distributor)
         );
+        minter.setOverrideGrowthParam(1000000);
         distributor.setDepositor(address(minter));
         VSTOKEN.setMinter(address(minter));
 

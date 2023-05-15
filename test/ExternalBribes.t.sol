@@ -40,6 +40,7 @@ contract ExternalBribesTest is BaseTest {
         // deployMinter()
         distributor = new RewardsDistributor(address(escrow));
         minter = new Minter(address(voter), address(escrow), address(distributor));
+        minter.setOverrideGrowthParam(1000000);
         distributor.setDepositor(address(minter));
         VSTOKEN.setMinter(address(minter));
         address[] memory tokens = new address[](5);

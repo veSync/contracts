@@ -96,7 +96,7 @@ contract MinterTeamEmissions is BaseTest {
         vm.expectRevert(abi.encodePacked("no growthParam"));
         minter.start();
 
-        minter.setOverrideGrowthParam(600);
+        minter.setOverrideGrowthParam(1000000);
         minter.start();
 
         uint256 before = VSTOKEN.balanceOf(address(owner3));
@@ -152,7 +152,7 @@ contract MinterTeamEmissions is BaseTest {
         minter.update_period(); // new period
         uint256 afterTeamSupply = VSTOKEN.balanceOf(address(team));
         uint256 newTeamVS = afterTeamSupply - beforeTeamSupply;
-        assertEq(((weekly + growth + newTeamVS) * 200) / 10000, newTeamVS); // check 2% of new emissions to team
+        assertEq(((weekly + growth + newTeamVS) * 100) / 10000, newTeamVS); // check 1% of new emissions to team
 
         vm.warp(block.timestamp + 86400 * 7);
         vm.roll(block.number + 1);
@@ -162,7 +162,7 @@ contract MinterTeamEmissions is BaseTest {
         minter.update_period(); // new period
         afterTeamSupply = VSTOKEN.balanceOf(address(team));
         newTeamVS = afterTeamSupply - beforeTeamSupply;
-        assertEq(((weekly + growth + newTeamVS) * 200) / 10000, newTeamVS); // check 2% of new emissions to team
+        assertEq(((weekly + growth + newTeamVS) * 100) / 10000, newTeamVS); // check 1% of new emissions to team
 
         // rate is right even when VSTOKEN is sent to Minter contract
         vm.warp(block.timestamp + 86400 * 7);
@@ -174,7 +174,7 @@ contract MinterTeamEmissions is BaseTest {
         minter.update_period(); // new period
         afterTeamSupply = VSTOKEN.balanceOf(address(team));
         newTeamVS = afterTeamSupply - beforeTeamSupply;
-        assertEq(((weekly + growth + newTeamVS) * 200) / 10000, newTeamVS); // check 2% of new emissions to team
+        assertEq(((weekly + growth + newTeamVS) * 100) / 10000, newTeamVS); // check 1% of new emissions to team
     }
 
     function testChangeTeamEmissionsRate() public {

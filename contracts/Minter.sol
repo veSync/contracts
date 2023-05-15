@@ -63,7 +63,7 @@ contract Minter is IMinter {
         address[] memory targets,
         uint[] memory amounts
     ) external {
-        require(initializer == msg.sender && tokenInitialized == false);
+        require(initializer == msg.sender && !tokenInitialized, "cannot initializeToken");
         _vs.approve(address(_ve), type(uint).max);
         // initialize token
         for (uint i = 0; i < targets.length; i++) {
@@ -154,6 +154,8 @@ contract Minter is IMinter {
     }
 
     // calculate inflation and adjust ve balances accordingly
+    // epochNum is the number of epochs since start
+    // epochNum = 1 means the first epoch after start
     function calculate_growth(uint _minted, uint epochNum) public view returns (uint) {
         uint _veTotal = _ve.totalSupply();
         uint _vsTotal = _vs.totalSupply();

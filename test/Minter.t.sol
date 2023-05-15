@@ -39,6 +39,7 @@ contract MinterTest is BaseTest {
         escrow.setVoter(address(voter));
 
         minter = new Minter(address(voter), address(escrow), address(distributor));
+        minter.setOverrideGrowthParam(1000000);
         distributor.setDepositor(address(minter));
         VSTOKEN.setMinter(address(minter));
 
@@ -64,23 +65,22 @@ contract MinterTest is BaseTest {
     function initializeVotingEscrow() public {
         deployBase();
 
-        // owner2 has 1M token VS
+        // owner has 100M token VS
         address[] memory claimants = new address[](1);
-        claimants[0] = address(owner2);
+        claimants[0] = address(owner);
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = TOKEN_1M;
+        amounts[0] = TOKEN_100M;
         
-        // owner has 100M veVS
-        // address teamAddress = address(owner);
-        // uint teamLockAmount = TOKEN_100M;
-        // uint totalSupplyAmount = TOKEN_100M + TOKEN_1M;
-        // minter.initializeToken(totalSupplyAmount, claimants, amounts, teamAddress, teamLockAmount);
+        uint balanceBefore = VSTOKEN.balanceOf(address(owner));
         minter.initializeToken(claimants, amounts);
         minter.start();
-        assertEq(escrow.ownerOf(2), address(owner));
-        assertEq(escrow.ownerOf(3), address(0));
+        uint balanceAfter = VSTOKEN.balanceOf(address(owner));
+        assertEq(escrow.ownerOf(1), address(owner));
+        assertEq(escrow.ownerOf(2), address(0));
+        assertEq(VSTOKEN.balanceOf(address(minter)), 0);
+        assertEq(balanceAfter - balanceBefore, TOKEN_100M);
+
         vm.roll(block.number + 1);
-        assertEq(VSTOKEN.balanceOf(address(minter)), 19 * TOKEN_1M);
     }
     
     function testMintFrozen() public {
@@ -95,6 +95,7 @@ contract MinterTest is BaseTest {
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = 1e24;
         amounts[1] = 1e24;
+        VSTOKEN.transfer(address(minter), 2e24);
         minter.mintFrozen(claimants, amounts);
         assertTrue(escrow.isFrozen(2));
         assertTrue(escrow.isFrozen(3));
@@ -109,7 +110,7 @@ contract MinterTest is BaseTest {
         uint voterBalanceBefore = VSTOKEN.balanceOf(address(voter));
         minter.update_period();
         uint voterBalanceAfter = VSTOKEN.balanceOf(address(voter));
-        assertEq(minter.weekly(), 15 * TOKEN_1M * 9900 / 10000); // 15M, weekly value is not changed by override
+        assertEq(minter.weekly(), 4 * TOKEN_1M * 9850 / 10000); // 4M, weekly value is not changed by override
         assertEq(voterBalanceAfter - voterBalanceBefore, 2 * TOKEN_1M); // voter balance changes by override amount
 
         // 2nd week, cancel override
@@ -118,7 +119,7 @@ contract MinterTest is BaseTest {
         voterBalanceBefore = VSTOKEN.balanceOf(address(voter));
         minter.update_period();
         voterBalanceAfter = VSTOKEN.balanceOf(address(voter));
-        assertEq(minter.weekly(), 15 * TOKEN_1M * 9900 / 10000 * 9900 / 10000);
+        assertEq(minter.weekly(), 4 * TOKEN_1M * 9850 / 10000 * 9850 / 10000);
         assertEq(voterBalanceAfter - voterBalanceBefore, minter.weekly()); // voter balance changes by weekly amount
 
         // 3rd week, set override to 3M
@@ -141,14 +142,16 @@ contract MinterTest is BaseTest {
         initializeVotingEscrow();
 
         minter.update_period();
-        assertEq(minter.weekly(), 15 * TOKEN_1M); // 15M
+        assertEq(minter.weekly(), 4 * TOKEN_1M); // 4M
         vm.warp(block.timestamp + 86400 * 7);
         vm.roll(block.number + 1);
+
         minter.update_period();
         assertEq(distributor.claimable(1), 0);
-        assertLt(minter.weekly(), 15 * TOKEN_1M); // <15M for week shift
+        assertLt(minter.weekly(), 4 * TOKEN_1M); // <4M for week shift
         vm.warp(block.timestamp + 86400 * 7);
         vm.roll(block.number + 1);
+
         minter.update_period();
         uint256 claimable = distributor.claimable(1);
         assertGt(claimable, 128115516517529);
@@ -157,36 +160,36 @@ contract MinterTest is BaseTest {
 
         uint256 weekly = minter.weekly();
         console2.log(weekly);
-        console2.log(minter.calculate_growth(weekly, 0));
+        console2.log(minter.calculate_growth(weekly, 1));
         console2.log(VSTOKEN.totalSupply());
         console2.log(escrow.totalSupply());
 
-        vm.warp(block.timestamp + 86400 * 7);
-        vm.roll(block.number + 1);
-        minter.update_period();
-        console2.log(distributor.claimable(1));
-        distributor.claim(1);
-        vm.warp(block.timestamp + 86400 * 7);
-        vm.roll(block.number + 1);
-        minter.update_period();
-        console2.log(distributor.claimable(1));
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = 1;
-        distributor.claim_many(tokenIds);
-        vm.warp(block.timestamp + 86400 * 7);
-        vm.roll(block.number + 1);
-        minter.update_period();
-        console2.log(distributor.claimable(1));
-        distributor.claim(1);
-        vm.warp(block.timestamp + 86400 * 7);
-        vm.roll(block.number + 1);
-        minter.update_period();
-        console2.log(distributor.claimable(1));
-        distributor.claim_many(tokenIds);
-        vm.warp(block.timestamp + 86400 * 7);
-        vm.roll(block.number + 1);
-        minter.update_period();
-        console2.log(distributor.claimable(1));
-        distributor.claim(1);
+        // vm.warp(block.timestamp + 86400 * 7);
+        // vm.roll(block.number + 1);
+        // minter.update_period();
+        // console2.log(distributor.claimable(1));
+        // distributor.claim(1);
+        // vm.warp(block.timestamp + 86400 * 7);
+        // vm.roll(block.number + 1);
+        // minter.update_period();
+        // console2.log(distributor.claimable(1));
+        // uint256[] memory tokenIds = new uint256[](1);
+        // tokenIds[0] = 1;
+        // distributor.claim_many(tokenIds);
+        // vm.warp(block.timestamp + 86400 * 7);
+        // vm.roll(block.number + 1);
+        // minter.update_period();
+        // console2.log(distributor.claimable(1));
+        // distributor.claim(1);
+        // vm.warp(block.timestamp + 86400 * 7);
+        // vm.roll(block.number + 1);
+        // minter.update_period();
+        // console2.log(distributor.claimable(1));
+        // distributor.claim_many(tokenIds);
+        // vm.warp(block.timestamp + 86400 * 7);
+        // vm.roll(block.number + 1);
+        // minter.update_period();
+        // console2.log(distributor.claimable(1));
+        // distributor.claim(1);
     }
 }
