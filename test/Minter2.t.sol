@@ -10,9 +10,13 @@ contract MinterTest is BaseTest {
     Voter voter;
     RewardsDistributor distributor;
     Minter minter;
+    address gaugeAddress;
+    Gauge gauge;
 
     function deployBase() public {
         vm.warp(block.timestamp + 1 weeks); // put some initial time in
+
+        vm.warp(block.timestamp + 20 weeks); // put some initial time in
 
         deployOwners();
         deployCoins();
@@ -27,6 +31,7 @@ contract MinterTest is BaseTest {
         router = new Router(address(factory), address(owner));
         gaugeFactory = new GaugeFactory();
         bribeFactory = new BribeFactory();
+        
         voter = new Voter(address(escrow), address(factory), address(gaugeFactory), address(bribeFactory));
 
         address[] memory tokens = new address[](2);
@@ -34,6 +39,7 @@ contract MinterTest is BaseTest {
         tokens[1] = address(VSTOKEN);
         voter.initialize(tokens, address(owner));
         VSTOKEN.approve(address(escrow), TOKEN_100K);
+
         escrow.create_lock(TOKEN_100K, 365 * 86400);
         distributor = new RewardsDistributor(address(escrow));
         escrow.setVoter(address(voter));
@@ -51,6 +57,10 @@ contract MinterTest is BaseTest {
 
         VSTOKEN.approve(address(voter), 5 * TOKEN_100K);
         voter.createGauge(pair);
+
+        gaugeAddress = voter.gauges(address(pair));
+        gauge = Gauge(gaugeAddress);
+
         vm.roll(block.number + 1); // fwd 1 block because escrow.balanceOfNFT() returns 0 in same block
         assertGt(escrow.balanceOfNFT(1), 995063075414519385);
         assertEq(VSTOKEN.balanceOf(address(escrow)), TOKEN_100K);
@@ -64,8 +74,6 @@ contract MinterTest is BaseTest {
 
     function initializeVotingEscrow() public {
         deployBase();
-
-
 
         // owner has 100M token VS
         address[] memory claimants = new address[](2);
@@ -129,62 +137,164 @@ contract MinterTest is BaseTest {
 
         minter.setEarlyGrowthParams(growthParams);
 
+
+        assertEq(minter.earlyGrowthParams(1), growthParams[1], 'growth param set failed');
+
+        
         minter.start();
 
-        assertEq(minter.weekly(), 4 * TOKEN_1M);
+        address teamAddress = address(owner2);
+        minter.setTeam(teamAddress);
+        
+        vm.expectRevert(abi.encodePacked("not pending team"));
+        minter.acceptTeam();
+
+        vm.startPrank(address(owner2));
+        minter.acceptTeam();
+        vm.stopPrank();
+
+        uint teamBalanceBefore;
+        uint teamBalanceAfter;
 
         minter.update_period();
-        assertEq(minter.weekly(), 4 * TOKEN_1M);
-
         minter.update_period();
-        assertEq(minter.weekly(), 4 * TOKEN_1M);
 
-        assertEq(VSTOKEN.balanceOf(address(distributor)), 0);
-
-        assertEq(distributor.claimable(1), 0);
-
+        // cannot update at the start time
+        console.log("block timestamp");
         console.log(block.timestamp);
-
         assertEq(minter.current_epoch_num(), 0);
 
-         vm.warp(block.timestamp + 1 days);
-
-        assertEq(minter.current_epoch_num(), 0);
-
-        // next epoch
-        vm.warp(block.timestamp + 6 days);
-
-        assertEq(minter.current_epoch_num(), 1);
-
-        assertEq(minter.weekly(), 4 * TOKEN_1M, "emission");
-
-        console.log(VSTOKEN.totalSupply());
-        console.log(escrow.totalSupply());
-        console.log("test");
-        console.log(minter.calculate_growth(4 * TOKEN_1M * 9850/10000, 1));
-        console.log("test2");
-        console.log(minter.earlyGrowthParams(1));
+        assertEq(distributor.last_token_time(), distributor.start_time(), 'token should not distribute');
         assertEq(VSTOKEN.balanceOf(address(distributor)), 0);
+        assertEq(distributor.claimable(1), 0);
+        assertEq(VSTOKEN.balanceOf(address(voter)), 0);
+        assertEq(VSTOKEN.balanceOf(teamAddress), 0);
 
 
-
-
-
-        // address[] memory pools = new address[](1);
-        // pools[0] = pair;
-        // uint256[] memory weights = new uint256[](1);
-        // weights[0] = 5000;
-        // voter.vote(1, pools, weights);
-
-        console.log(distributor.claimable(1));
+        // cannot update at the first epoch
+        vm.warp(block.timestamp + 1 days);
+        assertEq(minter.current_epoch_num(), 0);
 
         minter.update_period();
+        // no token distribute
+        assertEq(distributor.last_token_time(), distributor.start_time(), 'token should not distribute');
+        assertEq(VSTOKEN.balanceOf(address(distributor)), 0, 'no token distribute');
+        assertEq(distributor.claimable(1), 0);
+        assertEq(VSTOKEN.balanceOf(address(voter)), 0);
+        assertEq(VSTOKEN.balanceOf(teamAddress), 0);
 
-        // next epoch
+
+        // can update at the epoch 1, the first epoch distribting tokens
+        vm.warp(block.timestamp + 6 days);
+        assertEq(minter.current_epoch_num(), 1);
+        assertEq(minter.weekly(), 4 * TOKEN_1M, "emission correct");
+
+        // owner3 vote at epoch 1
+        VSTOKEN.transfer(address(owner3), TOKEN_100K);
+        vm.startPrank(address(owner3));
+        VSTOKEN.approve(address(escrow), TOKEN_100K);
+        escrow.create_lock(TOKEN_100K, 365 * 86400);
+        vm.stopPrank();
+
+        uint updatedWeekly = minter.weekly() * 9850/10000;
+        minter.update_period();
+
+        assertEq(distributor.last_token_time(), block.timestamp, 'token distribute');
+        uint growth = 736512821764926259294157;
+        assertEq(VSTOKEN.balanceOf(address(distributor)), growth, 'rebasing amount correct');
+        assertEq(VSTOKEN.balanceOf(address(voter)), updatedWeekly, 'voter emission correct');
+        assertEq(VSTOKEN.balanceOf(teamAddress), (100 * (growth + updatedWeekly)) /
+                (10000 - 100), 'team emission correct');
+
+        assertEq(distributor.claimable(1), 0, 'cannot claim yet, must wait a full epoch');
+
+
+        // next epoch (epoch 2, the second epoch distribting tokens, and votes at the epoch 0 can claim)
         vm.warp(block.timestamp + 7 days);
         assertEq(minter.current_epoch_num(), 2);
+        assertEq(minter.weekly(), 4 * TOKEN_1M * 9850/10000, "emission correct");
 
-        assertEq(VSTOKEN.balanceOf(address(distributor)), 89408573438455893717131);
+        
+        minter.update_period();
+        assertEq(distributor.claimable(1), 2004813888577500549002, "votes at two epochs ago can claim now");
+        assertEq(distributor.claimable(2), 0, 'cannot claim yet for votes at last epoch, must wait a full epoch');
+
+        assertEq(VSTOKEN.balanceOf(address(distributor)), 738516421189210500056416);
+
+        // must wait for a full epoch
+        vm.warp(block.timestamp + 6 days);
+        assertEq(minter.current_epoch_num(), 2);
+        minter.update_period();
+        assertEq(distributor.claimable(2), 0, 'cannot claim yet, must wait a full epoch');
+
+
+        // next epoch (epoch 3, the third epoch distribting tokens, and votes at the epoch 1 can claim)
+        vm.warp(block.timestamp + 1 days);
+
+        updatedWeekly = minter.weekly() * 9850/10000;
+
+        uint distributorBalanceBefore = VSTOKEN.balanceOf(address(distributor));
+        uint voteBalanceBefore = VSTOKEN.balanceOf(address(voter));
+        uint teamAddressBalanceBefore = VSTOKEN.balanceOf(teamAddress);
+
+        console.log('ve', escrow.totalSupply());
+        console.log('vs', VSTOKEN.totalSupply());
+        console.log('emission', updatedWeekly);
+
+        minter.update_period();
+
+        uint distributorBalanceAfter = VSTOKEN.balanceOf(address(distributor));
+        uint voteBalanceAfter = VSTOKEN.balanceOf(address(voter));
+        uint teamAddressBalanceAfter = VSTOKEN.balanceOf(teamAddress);
+
+        assertEq(minter.current_epoch_num(), 3);
+        
+        assertEq(distributor.claimable(1), 2131708420791023633322, 'can claim after a full epoch');
+        assertEq(distributor.claimable(2), 129432422857793546006, 'can claim after a full epoch');
+
+
+        growth = 256324066057827499353;
+        assertEq(distributorBalanceAfter - distributorBalanceBefore, growth, 'rebasing amount correct');
+        assertEq(voteBalanceAfter - voteBalanceBefore, updatedWeekly, 'voter emission correct');
+        assertEq(teamAddressBalanceAfter - teamAddressBalanceBefore, (100 * (growth + updatedWeekly)) /
+                (10000 - 100), 'team emission correct');
+
+
+        
+        // epoch 4
+        vm.warp(block.timestamp + 1 weeks);
+        assertEq(minter.current_epoch_num(), 4);
+        // override
+
+        vm.expectRevert(abi.encodePacked("not team"));
+        minter.setOverrideGrowthParam(1000000);
+
+        vm.startPrank(address(owner2));
+        minter.setOverrideGrowthParam(1000000);
+        vm.stopPrank();
+
+        distributorBalanceBefore = VSTOKEN.balanceOf(address(distributor));
+        voteBalanceBefore = VSTOKEN.balanceOf(address(voter));
+        teamAddressBalanceBefore = VSTOKEN.balanceOf(teamAddress);
+
+        updatedWeekly = minter.weekly() * 9850/10000;
+
+        console.log('ve', escrow.totalSupply());
+        console.log('vs', VSTOKEN.totalSupply());
+        console.log('emission', updatedWeekly);
+
+        minter.update_period();
+
+        distributorBalanceAfter = VSTOKEN.balanceOf(address(distributor));
+        voteBalanceAfter = VSTOKEN.balanceOf(address(voter));
+        teamAddressBalanceAfter = VSTOKEN.balanceOf(teamAddress);
+
+        // growth param changed to 1e6
+        growth = 4917983650420152774;
+        assertEq(distributorBalanceAfter - distributorBalanceBefore, growth, 'rebasing amount correct');
+        assertEq(voteBalanceAfter - voteBalanceBefore, updatedWeekly, 'voter emission correct');
+        assertEq(teamAddressBalanceAfter - teamAddressBalanceBefore, (100 * (growth + updatedWeekly)) /
+                (10000 - 100), 'team emission correct');
 
     }
 }
