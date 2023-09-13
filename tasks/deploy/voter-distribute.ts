@@ -20,10 +20,10 @@ async function deploy(taskArgs: any) {
     const pool = await c.pools(i);
     console.log(`id: ${i}, pool: ${pool}`);
     const gauge = await c.gauges(pool);
-    if (SKIP_GAUGE.includes(gauge.toLowerCase())) {
-      console.log(`id: ${i}, pool: ${pool}, gauge: ${gauge}, is skipped. Skipping...`);
-      continue;
-    }
+    // if (SKIP_GAUGE.includes(gauge.toLowerCase())) {
+    //   console.log(`id: ${i}, pool: ${pool}, gauge: ${gauge}, is skipped. Skipping...`);
+    //   continue;
+    // }
     const isAlive = await c.isAlive(gauge);
     if (!isAlive) {
       console.log(`id: ${i}, pool: ${pool}, gauge: ${gauge}, is not alive. Skipping...`);
@@ -33,7 +33,7 @@ async function deploy(taskArgs: any) {
     const gaugeContract = await hre.ethers.getContractAt("Gauge", gauge);
     const periodFinish = await gaugeContract.periodFinish(VS_ADDRESS);
     if (periodFinish > Date.now() / 1000) {
-      console.log(`id: ${i}, pool: ${pool}, gauge: ${gauge}, periodFinish: ${periodFinish}, is not finished. Skipping...`);
+      console.log(`id: ${i}, pool: ${pool}, gauge: ${gauge}, remaining days: ${(periodFinish - Date.now() / 1000) / 86400}, is not finished. Skipping...`);
       continue;
     }
 

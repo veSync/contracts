@@ -8,3 +8,4 @@ import "./deployGovernance.ts";
 import "./vs.ts";
 import "./minter.ts";
 import "./voter-distribute.ts";
+import "./voter-distributedebug.ts";
