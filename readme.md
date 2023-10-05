@@ -1,6 +1,8 @@
 # VeSync
+[![Open in Dev Containers](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/veSync/contracts)
 
 This repo contains the contracts for VeSync, a ve(3,3) DEX on zkSync Era inspired by Velodrome Finance and Solidly.
+
 ## Testing
 
 This repo uses both Foundry (for Solidity testing) and Hardhat (for deployment).
