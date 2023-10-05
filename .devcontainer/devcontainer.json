@@ -1,0 +1,6 @@
+{
+  "name": "Solidity Smart Contract Dev Container",
+  "dockerFile": "Dockerfile",
+  "forwardPorts": [3000],
+  "postCreateCommand": "foundryup && bun install && forge compile"
+}
