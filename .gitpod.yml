@@ -1,0 +1,12 @@
+# Image of workspace. Learn more: https://www.gitpod.io/docs/configure/workspaces/workspace-image
+image: gitpod/workspace-full:latest
+
+# List the start up tasks. Learn more: https://www.gitpod.io/docs/configure/workspaces/tasks
+tasks:
+  - name: setup node
+    init: npm install
+  - name: Foundry install
+    before: curl -L https://foundry.paradigm.xyz | bash;source ~/.bashrc # runs during prebuild => https://www.gitpod.io/docs/configure/projects/prebuilds
+    init: foundryup
+    command: forge compile
+# Learn more from ready-to-use templates: https://www.gitpod.io/docs/introduction/getting-started/quickstart
