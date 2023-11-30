@@ -1,0 +1,26 @@
+{
+  // These tasks will run in order when initializing your CodeSandbox project.
+  "setupTasks": [
+    {
+      "name": "Install Dependencies",
+      "command": "npm install"
+    },
+    {
+      "command": "curl -L https://foundry.paradigm.xyz | bash;source ~/.bashrc",
+      "name": "curl -L https://foundry.paradigm.xyz | bash;source ~/.bashrc"
+    },
+    {
+      "command": "foundryup",
+      "name": "foundryup"
+    }
+  ],
+
+  // These tasks can be run from CodeSandbox. Running one will open a log in the app.
+  "tasks": {
+    "forge compile": {
+      "name": "forge compile",
+      "command": "forge compile",
+      "runAtStart": true
+    }
+  }
+}
