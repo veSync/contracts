@@ -14,6 +14,7 @@ import "contracts/Pair.sol";
 import "contracts/PairFees.sol";
 import "contracts/RewardsDistributor.sol";
 import "contracts/Router.sol";
+import "contracts/Router02.sol";
 import "contracts/TokenSale.sol";
 import "contracts/PrivateSaleClaim.sol";
 import "contracts/VS.sol";
@@ -27,6 +28,7 @@ import "utils/TestToken.sol";
 import "utils/TestVoter.sol";
 import "utils/TestVotingEscrow.sol";
 import "utils/TestWETH.sol";
+import "utils/TestTaxableToken.sol";
 
 abstract contract BaseTest is Test, TestOwner {
     uint256 constant USDC_1 = 1e6;
@@ -45,6 +47,7 @@ abstract contract BaseTest is Test, TestOwner {
     MockERC20 USDC;
     MockERC20 FRAX;
     MockERC20 DAI;
+    TestTaxableToken YFX;
     TestWETH WETH; // Mock WETH token
     VS VSTOKEN;
     MockERC20 WEVE;
@@ -52,6 +55,7 @@ abstract contract BaseTest is Test, TestOwner {
     TestToken stake; // MockERC20 with claimFees() function that returns (0,0)
     PairFactory factory;
     Router router;
+    Router02 router02;
     VelodromeLibrary lib;
     Pair pair;
     Pair pair2;
@@ -74,6 +78,7 @@ abstract contract BaseTest is Test, TestOwner {
         VSTOKEN = new VS();
         WEVE = new MockERC20("WEVE", "WEVE", 18);
         LR = new MockERC20("LR", "LR", 18);
+        YFX = new TestTaxableToken("YFX", "YFX", 18);
         WETH = new TestWETH();
         stake = new TestToken("stake", "stake", 18, address(owner));
     }
@@ -86,31 +91,55 @@ abstract contract BaseTest is Test, TestOwner {
         }
     }
 
-    function mintVS(address[] memory _accounts, uint256[] memory _amounts) public {
+    function mintVS(
+        address[] memory _accounts,
+        uint256[] memory _amounts
+    ) public {
         for (uint256 i = 0; i < _amounts.length; i++) {
             VSTOKEN.mint(_accounts[i], _amounts[i]);
         }
     }
 
-    function mintLR(address[] memory _accounts, uint256[] memory _amounts) public {
+    function mintLR(
+        address[] memory _accounts,
+        uint256[] memory _amounts
+    ) public {
         for (uint256 i = 0; i < _accounts.length; i++) {
             LR.mint(_accounts[i], _amounts[i]);
         }
     }
 
-    function mintStake(address[] memory _accounts, uint256[] memory _amounts) public {
+    function mintStake(
+        address[] memory _accounts,
+        uint256[] memory _amounts
+    ) public {
         for (uint256 i = 0; i < _accounts.length; i++) {
             stake.mint(_accounts[i], _amounts[i]);
         }
     }
 
-    function mintWETH(address[] memory _accounts, uint256[] memory _amounts) public {
+    function mintWETH(
+        address[] memory _accounts,
+        uint256[] memory _amounts
+    ) public {
         for (uint256 i = 0; i < _accounts.length; i++) {
             WETH.mint(_accounts[i], _amounts[i]);
         }
     }
 
-    function dealETH(address [] memory _accounts, uint256[] memory _amounts) public {
+    function mintYFX(
+        address[] memory _accounts,
+        uint256[] memory _amounts
+    ) public {
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            YFX.mint(_accounts[i], _amounts[i]);
+        }
+    }
+
+    function dealETH(
+        address[] memory _accounts,
+        uint256[] memory _amounts
+    ) public {
         for (uint256 i = 0; i < _accounts.length; i++) {
             vm.deal(_accounts[i], _amounts[i]);
         }
@@ -122,24 +151,63 @@ abstract contract BaseTest is Test, TestOwner {
         factory.setFee(true, 1); // set fee back to 0.01% for old tests
         factory.setFee(false, 1);
         router = new Router(address(factory), address(WETH));
+        router02 = new Router02(address(factory), address(WETH));
         assertEq(router.factory(), address(factory));
+        assertEq(router02.factory(), address(factory));
         lib = new VelodromeLibrary(address(router));
     }
 
     function deployPairWithOwner(address _owner) public {
         TestOwner(_owner).approve(address(FRAX), address(router), TOKEN_1);
         TestOwner(_owner).approve(address(USDC), address(router), USDC_1);
-        TestOwner(_owner).addLiquidity(payable(address(router)), address(FRAX), address(USDC), true, TOKEN_1, USDC_1, 0, 0, address(owner), block.timestamp);
+        TestOwner(_owner).addLiquidity(
+            payable(address(router)),
+            address(FRAX),
+            address(USDC),
+            true,
+            TOKEN_1,
+            USDC_1,
+            0,
+            0,
+            address(owner),
+            block.timestamp
+        );
         TestOwner(_owner).approve(address(FRAX), address(router), TOKEN_1);
         TestOwner(_owner).approve(address(USDC), address(router), USDC_1);
-        TestOwner(_owner).addLiquidity(payable(address(router)), address(FRAX), address(USDC), false, TOKEN_1, USDC_1, 0, 0, address(owner), block.timestamp);
+        TestOwner(_owner).addLiquidity(
+            payable(address(router)),
+            address(FRAX),
+            address(USDC),
+            false,
+            TOKEN_1,
+            USDC_1,
+            0,
+            0,
+            address(owner),
+            block.timestamp
+        );
         TestOwner(_owner).approve(address(FRAX), address(router), TOKEN_1);
         TestOwner(_owner).approve(address(DAI), address(router), TOKEN_1);
-        TestOwner(_owner).addLiquidity(payable(address(router)), address(FRAX), address(DAI), true, TOKEN_1, TOKEN_1, 0, 0, address(owner), block.timestamp);
+        TestOwner(_owner).addLiquidity(
+            payable(address(router)),
+            address(FRAX),
+            address(DAI),
+            true,
+            TOKEN_1,
+            TOKEN_1,
+            0,
+            0,
+            address(owner),
+            block.timestamp
+        );
 
         assertEq(factory.allPairsLength(), 3);
 
-        address create2address = router.pairFor(address(FRAX), address(USDC), true);
+        address create2address = router.pairFor(
+            address(FRAX),
+            address(USDC),
+            true
+        );
         address address1 = factory.getPair(address(FRAX), address(USDC), true);
         pair = Pair(address1);
         address address2 = factory.getPair(address(FRAX), address(USDC), false);
@@ -147,7 +215,10 @@ abstract contract BaseTest is Test, TestOwner {
         address address3 = factory.getPair(address(FRAX), address(DAI), true);
         pair3 = Pair(address3);
         assertEq(address(pair), create2address);
-        assertGt(lib.getAmountOut(USDC_1, address(USDC), address(FRAX), true), 0);
+        assertGt(
+            lib.getAmountOut(USDC_1, address(USDC), address(FRAX), true),
+            0
+        );
     }
 
     function mintPairFraxUsdcWithOwner(address _owner) public {
